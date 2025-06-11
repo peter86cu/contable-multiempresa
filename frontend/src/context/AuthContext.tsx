@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 import { Usuario } from '../types';
+import { FirebaseAuthService } from '../config/firebaseAuth';
 
 interface AuthContextType {
   user: any;
@@ -23,39 +25,75 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isLoading: auth0Loading, isAuthenticated: auth0Authenticated, loginWithRedirect, logout: auth0Logout, error: auth0Error } = useAuth0();
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simular carga inicial y crear usuario mock
+    // Inicializar autenticación cuando cambia el estado de Auth0
     const initializeAuth = async () => {
       try {
         setError(null);
         
-        // Simular tiempo de carga
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Crear usuario mock para desarrollo con múltiples empresas
-        const mockUser: Usuario = {
-          id: 'dev-user-123',
-          nombre: 'Usuario de Desarrollo',
-          email: 'dev@contaempresa.com',
-          rol: 'super_admin', // Super admin para acceso completo
-          empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
-          permisos: ['admin:all'],
-          paisId: 'peru',
-          activo: true,
-          fechaCreacion: new Date(),
-          configuracion: {
-            idioma: 'es',
-            timezone: 'America/Lima',
-            formatoFecha: 'DD/MM/YYYY',
-            formatoMoneda: 'es-PE'
-          }
-        };
-        
-        setUsuario(mockUser);
+        // Si estamos en Auth0 y autenticados, usar esos datos
+        if (auth0Authenticated && user) {
+          console.log('🔐 Usuario autenticado con Auth0:', user);
+          
+          // Inicializar Firebase Auth
+          await FirebaseAuthService.ensureAuthenticated();
+          
+          // Crear usuario mock basado en datos de Auth0
+          const mockUser: Usuario = {
+            id: user.sub || 'auth0-user',
+            nombre: user.name || 'Usuario Auth0',
+            email: user.email || 'auth0@example.com',
+            rol: 'super_admin', // Super admin para acceso completo
+            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
+            permisos: ['admin:all'],
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date(),
+            configuracion: {
+              idioma: 'es',
+              timezone: 'America/Lima',
+              formatoFecha: 'DD/MM/YYYY',
+              formatoMoneda: 'es-PE'
+            }
+          };
+          
+          setUsuario(mockUser);
+        } else if (import.meta.env.DEV) {
+          // En desarrollo, crear usuario mock si no hay Auth0
+          console.log('🔄 Modo desarrollo - Creando usuario mock');
+          
+          // Simular tiempo de carga
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Crear usuario mock para desarrollo con múltiples empresas
+          const mockUser: Usuario = {
+            id: 'dev-user-123',
+            nombre: 'Usuario de Desarrollo',
+            email: 'dev@contaempresa.com',
+            rol: 'super_admin', // Super admin para acceso completo
+            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
+            permisos: ['admin:all'],
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date(),
+            configuracion: {
+              idioma: 'es',
+              timezone: 'America/Lima',
+              formatoFecha: 'DD/MM/YYYY',
+              formatoMoneda: 'es-PE'
+            }
+          };
+          
+          setUsuario(mockUser);
+        } else {
+          // Si no estamos autenticados y no estamos en desarrollo, no hay usuario
+          setUsuario(null);
+        }
       } catch (error) {
         console.error('Error inicializando autenticación:', error);
         setError('Error inicializando la aplicación');
@@ -64,19 +102,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    initializeAuth();
-  }, []);
+    // Solo inicializar cuando Auth0 termine de cargar
+    if (!auth0Loading) {
+      initializeAuth();
+    }
+  }, [auth0Loading, auth0Authenticated, user]);
+
+  // Manejar errores de Auth0
+  useEffect(() => {
+    if (auth0Error) {
+      console.error('Error de Auth0:', auth0Error);
+      setError(`Error de autenticación: ${auth0Error.message}`);
+    }
+  }, [auth0Error]);
 
   const login = () => {
-    // En modo desarrollo, simplemente marcar como autenticado
-    console.log('Login simulado - ya estás autenticado en modo desarrollo');
+    if (auth0Authenticated) {
+      console.log('Ya estás autenticado con Auth0');
+      return;
+    }
+    
+    try {
+      loginWithRedirect();
+    } catch (error) {
+      console.error('Error en login:', error);
+      setError('Error al iniciar sesión');
+    }
   };
 
   const logout = () => {
     setUsuario(null);
     setError(null);
-    // En desarrollo, podrías recargar la página o resetear el estado
-    window.location.reload();
+    
+    if (auth0Authenticated) {
+      auth0Logout({ 
+        logoutParams: { 
+          returnTo: window.location.origin 
+        } 
+      });
+    } else {
+      // En desarrollo, simplemente recargar la página
+      window.location.reload();
+    }
   };
 
   const hasAccess = (empresaId: string): boolean => {
@@ -94,10 +161,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user: mockAuth0User,
+      user: user || mockAuth0User,
       usuario,
-      isLoading,
-      isAuthenticated: !!usuario,
+      isLoading: isLoading || auth0Loading,
+      isAuthenticated: !!usuario || auth0Authenticated,
       login,
       logout,
       hasAccess,
