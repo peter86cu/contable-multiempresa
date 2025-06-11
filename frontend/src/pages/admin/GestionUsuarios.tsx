@@ -5,38 +5,53 @@ import {
   Filter, 
   Edit, 
   Trash2, 
-  Mail, 
-  Shield,
-  Users,
-  Eye,
-  EyeOff,
-  UserPlus,
-  Settings,
-  AlertCircle,
+  Eye, 
+  Calendar,
+  FileText,
+  DollarSign,
+  AlertTriangle,
   CheckCircle,
-  XCircle,
-  ExternalLink,
-  Copy,
+  Clock,
+  Download,
+  Mail,
+  Phone,
+  Building2,
+  CreditCard,
+  TrendingUp,
+  TrendingDown,
   RefreshCw,
+  Users,
+  Receipt,
   Loader2,
-  Download
+  Copy,
+  ExternalLink,
+  Settings,
+  Key,
+  Save,
+  X,
+  Shield
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSesion } from '@/context/SesionContext';
 import { NotificationModal } from '@/components/common/NotificationModal';
 import { useModals } from '@/hooks/useModals';
 import { Auth0UsersService } from '@/services/auth0/users';
+import { RolesPermisosList } from '@/components/admin/RolesPermisosList';
+import { 
+  ROLES, 
+  PERMISOS, 
+  PERMISOS_POR_ROL, 
+  getPermisosPorRol 
+} from '@/services/auth0/roles';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
   const { empresaActual } = useSesion();
   
   const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [permisos, setPermisos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRol, setSelectedRol] = useState('');
+  const [selectedRol, setSelectedRol] = useState<string>('');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'create' | 'edit' | 'invite'>('create');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -48,7 +63,7 @@ export const GestionUsuarios: React.FC = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
 
-  // Hooks para modales
+  // Hook para modales
   const {
     notificationModal,
     closeNotification,
@@ -77,29 +92,6 @@ export const GestionUsuarios: React.FC = () => {
     try {
       // Cargar usuarios desde Auth0
       await cargarUsuarios();
-      
-      // Cargar roles y permisos (mock por ahora)
-      const rolesData = [
-        { id: 'super_admin', nombre: 'Super Admin', descripcion: 'Acceso completo al sistema' },
-        { id: 'admin_empresa', nombre: 'Administrador', descripcion: 'Administrador de empresa' },
-        { id: 'contador', nombre: 'Contador', descripcion: 'Acceso a funciones contables' },
-        { id: 'usuario', nombre: 'Usuario', descripcion: 'Acceso básico' }
-      ];
-      
-      const permisosData = [
-        { id: 'admin:all', nombre: 'Administración Total', categoria: 'admin' },
-        { id: 'empresas:read', nombre: 'Ver Empresas', categoria: 'empresas' },
-        { id: 'empresas:write', nombre: 'Gestionar Empresas', categoria: 'empresas' },
-        { id: 'contabilidad:read', nombre: 'Ver Contabilidad', categoria: 'contabilidad' },
-        { id: 'contabilidad:write', nombre: 'Editar Contabilidad', categoria: 'contabilidad' },
-        { id: 'finanzas:read', nombre: 'Ver Finanzas', categoria: 'finanzas' },
-        { id: 'finanzas:write', nombre: 'Gestionar Finanzas', categoria: 'finanzas' },
-        { id: 'usuarios:read', nombre: 'Ver Usuarios', categoria: 'usuarios' },
-        { id: 'usuarios:write', nombre: 'Gestionar Usuarios', categoria: 'usuarios' }
-      ];
-      
-      setRoles(rolesData);
-      setPermisos(permisosData);
     } catch (error) {
       console.error('Error cargando datos:', error);
       showError(
@@ -202,10 +194,25 @@ export const GestionUsuarios: React.FC = () => {
     
     try {
       if (modalType === 'create' || modalType === 'invite') {
-        // Aquí iría la lógica para crear usuario
+        // Crear usuario en Auth0
+        await Auth0UsersService.createUser({
+          email: formData.email,
+          password: formData.generatePassword ? generateRandomPassword() : formData.password,
+          name: formData.nombre,
+          rol: formData.rol,
+          empresas: empresaActual ? [empresaActual.id] : [],
+          permisos: formData.permisos
+        });
+        
         showSuccess('Usuario creado', 'El usuario ha sido creado exitosamente');
       } else if (modalType === 'edit' && selectedUser) {
-        // Aquí iría la lógica para actualizar usuario
+        // Actualizar usuario en Auth0
+        await Auth0UsersService.updateUser(selectedUser.id, {
+          name: formData.nombre,
+          rol: formData.rol,
+          permisos: formData.permisos
+        });
+        
         showSuccess('Usuario actualizado', 'El usuario ha sido actualizado exitosamente');
       }
 
@@ -227,7 +234,7 @@ export const GestionUsuarios: React.FC = () => {
       email: '',
       rol: 'usuario',
       empresas: [],
-      permisos: [],
+      permisos: getPermisosPorRol('usuario'),
       password: '',
       generatePassword: true
     });
@@ -263,14 +270,21 @@ export const GestionUsuarios: React.FC = () => {
     return colors[rol as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
-  const getRolPermissions = (rolId: string) => {
-    const rol = roles.find(r => r.id === rolId);
-    return rol?.permisos || [];
-  };
-
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     showSuccess('Copiado', 'Texto copiado al portapapeles');
+  };
+
+  const generateRandomPassword = (): string => {
+    const length = 12;
+    const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+    let password = '';
+    
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    
+    return password;
   };
 
   const exportarUsuarios = () => {
@@ -358,7 +372,7 @@ export const GestionUsuarios: React.FC = () => {
             ) : auth0Connected ? (
               <CheckCircle className="h-5 w-5 text-green-600" />
             ) : (
-              <XCircle className="h-5 w-5 text-red-600" />
+              <AlertTriangle className="h-5 w-5 text-red-600" />
             )}
             <div>
               <h3 className={`text-sm font-medium ${
@@ -435,7 +449,7 @@ export const GestionUsuarios: React.FC = () => {
                 </ul>
                 <div className="mt-2 p-2 bg-red-200 rounded font-mono text-xs">
                   <div className="flex items-center justify-between">
-                    <span>VITE_AUTH0_MANAGEMENT_CLIENT_ID=tu-client-id</span>
+                    <code>VITE_AUTH0_MANAGEMENT_CLIENT_ID=tu-client-id</code>
                     <button
                       onClick={() => copyToClipboard('VITE_AUTH0_MANAGEMENT_CLIENT_ID=tu-client-id')}
                       className="text-red-700 hover:text-red-900"
@@ -444,7 +458,7 @@ export const GestionUsuarios: React.FC = () => {
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span>VITE_AUTH0_MANAGEMENT_CLIENT_SECRET=tu-client-secret</span>
+                    <code>VITE_AUTH0_MANAGEMENT_CLIENT_SECRET=tu-client-secret</code>
                     <button
                       onClick={() => copyToClipboard('VITE_AUTH0_MANAGEMENT_CLIENT_SECRET=tu-client-secret')}
                       className="text-red-700 hover:text-red-900"
@@ -495,7 +509,7 @@ export const GestionUsuarios: React.FC = () => {
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center">
-            <UserPlus className="h-8 w-8 text-green-600" />
+            <Users className="h-8 w-8 text-green-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Usuarios Activos</p>
               <p className="text-lg font-semibold text-gray-900">
@@ -506,10 +520,10 @@ export const GestionUsuarios: React.FC = () => {
         </div>
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center">
-            <Settings className="h-8 w-8 text-purple-600" />
+            <Key className="h-8 w-8 text-purple-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Roles Definidos</p>
-              <p className="text-lg font-semibold text-gray-900">{roles.length}</p>
+              <p className="text-lg font-semibold text-gray-900">4</p>
             </div>
           </div>
         </div>
@@ -719,146 +733,157 @@ export const GestionUsuarios: React.FC = () => {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">
-              {modalType === 'create' ? 'Crear Usuario' : 
-               modalType === 'edit' ? 'Editar Usuario' : 'Invitar Usuario'}
-            </h3>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nombre Completo
-                </label>
-                <input
-                  type="text"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                  disabled={modalType === 'edit'}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Rol
-                </label>
-                <select
-                  value={formData.rol}
-                  onChange={(e) => {
-                    const newRol = e.target.value;
-                    setFormData({
-                      ...formData, 
-                      rol: newRol,
-                      permisos: getRolPermissions(newRol)
-                    });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-blue-100 p-2 rounded-lg">
+                    {modalType === 'invite' ? (
+                      <Mail className="h-6 w-6 text-blue-600" />
+                    ) : modalType === 'edit' ? (
+                      <Edit className="h-6 w-6 text-blue-600" />
+                    ) : (
+                      <Users className="h-6 w-6 text-blue-600" />
+                    )}
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    {modalType === 'create' ? 'Crear Usuario' : 
+                     modalType === 'edit' ? 'Editar Usuario' : 'Invitar Usuario'}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
                 >
-                  <option value="usuario">Usuario</option>
-                  <option value="contador">Contador</option>
-                  <option value="admin_empresa">Administrador</option>
-                  {usuarioActual?.rol === 'super_admin' && (
-                    <option value="super_admin">Super Admin</option>
-                  )}
-                </select>
+                  <X className="h-6 w-6" />
+                </button>
               </div>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="p-6 space-y-6">
+              {/* Información básica */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Información Básica</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre Completo *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Permisos
-                </label>
-                <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
-                  {permisos.map((permiso) => (
-                    <label key={permiso.id} className="flex items-center space-x-2 py-1">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({...formData, email: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                      disabled={modalType === 'edit'}
+                    />
+                  </div>
+                </div>
+
+                {modalType === 'create' && (
+                  <div>
+                    <label className="flex items-center space-x-2">
                       <input
                         type="checkbox"
-                        checked={formData.permisos.includes(permiso.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              permisos: [...formData.permisos, permiso.id]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              permisos: formData.permisos.filter(p => p !== permiso.id)
-                            });
-                          }
-                        }}
+                        checked={formData.generatePassword}
+                        onChange={(e) => setFormData({...formData, generatePassword: e.target.checked})}
                         className="rounded border-gray-300"
                       />
-                      <span className="text-sm">{permiso.nombre}</span>
+                      <span className="text-sm">Generar contraseña automáticamente</span>
                     </label>
-                  ))}
-                </div>
+                    
+                    {!formData.generatePassword && (
+                      <div className="mt-2 relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Contraseña"
+                          value={formData.password}
+                          onChange={(e) => setFormData({...formData, password: e.target.value})}
+                          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required={!formData.generatePassword}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {modalType === 'create' && (
-                <div>
-                  <label className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.generatePassword}
-                      onChange={(e) => setFormData({...formData, generatePassword: e.target.checked})}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-sm">Generar contraseña automáticamente</span>
-                  </label>
+              {/* Roles y permisos */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900">Roles y Permisos</h3>
+                
+                <RolesPermisosList
+                  selectedRol={formData.rol}
+                  selectedPermisos={formData.permisos}
+                  onRolChange={(rol) => setFormData({
+                    ...formData, 
+                    rol,
+                    permisos: getPermisosPorRol(rol)
+                  })}
+                  onPermisosChange={(permisos) => setFormData({...formData, permisos})}
+                />
+              </div>
+
+              {/* Empresas asignadas */}
+              {empresaActual && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Empresas Asignadas</h3>
                   
-                  {!formData.generatePassword && (
-                    <div className="mt-2 relative">
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Contraseña"
-                        value={formData.password}
-                        onChange={(e) => setFormData({...formData, password: e.target.value})}
-                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required={!formData.generatePassword}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        <Building2 className="h-6 w-6 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900">{empresaActual.nombre}</p>
+                        <p className="text-xs text-gray-500">{empresaActual.razonSocial}</p>
+                      </div>
+                      <div className="flex-shrink-0">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={(!auth0Connected && !import.meta.env.DEV)}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {modalType === 'create' ? 'Crear Usuario' : 
-                   modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
-                </button>
+              <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 transition-colors"
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={!auth0Connected && !import.meta.env.DEV}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Save className="h-4 w-4" />
+                  {modalType === 'create' ? 'Crear Usuario' : 
+                   modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
                 </button>
               </div>
             </form>

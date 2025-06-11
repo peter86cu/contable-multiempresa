@@ -1,6 +1,8 @@
 /**
  * Servicio para gestionar usuarios de Auth0 a través de la Edge Function
  */
+import { PERMISOS_POR_ROL } from './roles';
+
 export class Auth0UsersService {
   private static baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth0-users`;
 
@@ -66,6 +68,142 @@ export class Auth0UsersService {
     } catch (error) {
       console.error('Error buscando usuario por email:', error);
       return null;
+    }
+  }
+
+  /**
+   * Crea un nuevo usuario en Auth0
+   * @param userData Datos del usuario
+   * @returns Usuario creado
+   */
+  static async createUser(userData: {
+    email: string;
+    password: string;
+    name: string;
+    rol: string;
+    empresas: string[];
+    permisos?: string[];
+    subdominio?: string;
+  }) {
+    try {
+      // Verificar si estamos en modo desarrollo sin credenciales reales
+      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('Modo desarrollo: Simulando creación de usuario en Auth0', userData);
+        return {
+          id: `auth0_${Date.now()}`,
+          email: userData.email,
+          nombre: userData.name,
+          rol: userData.rol,
+          empresasAsignadas: userData.empresas,
+          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
+          fechaCreacion: new Date().toISOString()
+        };
+      }
+
+      // Si no se proporcionan permisos, usar los del rol
+      const permisos = userData.permisos || PERMISOS_POR_ROL[userData.rol] || [];
+
+      // Preparar datos para Auth0
+      const requestData = {
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        connection: 'Username-Password-Authentication',
+        app_metadata: {
+          rol: userData.rol,
+          empresas: userData.empresas,
+          permisos: permisos,
+          subdominio: userData.subdominio || userData.empresas[0] || ''
+        },
+        user_metadata: {
+          created_by: 'admin_panel',
+          creation_date: new Date().toISOString()
+        }
+      };
+
+      // Realizar petición a la Edge Function
+      const response = await fetch(`${this.baseUrl}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creando usuario en Auth0:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Actualiza un usuario en Auth0
+   * @param userId ID del usuario
+   * @param userData Datos a actualizar
+   * @returns Usuario actualizado
+   */
+  static async updateUser(userId: string, userData: {
+    name?: string;
+    email?: string;
+    password?: string;
+    rol?: string;
+    empresas?: string[];
+    permisos?: string[];
+    subdominio?: string;
+    blocked?: boolean;
+  }) {
+    try {
+      // Verificar si estamos en modo desarrollo sin credenciales reales
+      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('Modo desarrollo: Simulando actualización de usuario en Auth0', { userId, userData });
+        return { id: userId, ...userData };
+      }
+
+      // Preparar datos para Auth0
+      const requestData: any = {};
+      
+      if (userData.name) requestData.name = userData.name;
+      if (userData.email) requestData.email = userData.email;
+      if (userData.password) requestData.password = userData.password;
+      if (userData.blocked !== undefined) requestData.blocked = userData.blocked;
+      
+      // Metadatos de aplicación
+      const appMetadata: any = {};
+      if (userData.rol) appMetadata.rol = userData.rol;
+      if (userData.empresas) appMetadata.empresas = userData.empresas;
+      if (userData.permisos) appMetadata.permisos = userData.permisos;
+      if (userData.subdominio) appMetadata.subdominio = userData.subdominio;
+      
+      if (Object.keys(appMetadata).length > 0) {
+        requestData.app_metadata = appMetadata;
+      }
+
+      // Realizar petición a la Edge Function
+      const response = await fetch(`${this.baseUrl}/${userId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error actualizando usuario en Auth0:', error);
+      throw error;
     }
   }
 
