@@ -37,7 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Usar Auth0 para autenticación en lugar del modo desarrollo
+  // Usar Auth0 para autenticación
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -55,9 +55,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: auth0User.sub,
             nombre: auth0User.name || 'Usuario',
             email: auth0User.email || '',
-            rol: (auth0User['https://contaempresa.com/roles'] || 'usuario') as any,
-            empresasAsignadas: auth0User['https://contaempresa.com/empresas'] || [],
-            permisos: auth0User['https://contaempresa.com/permisos'] || [],
+            rol: (auth0User['https://contaempresa.com/roles'] || 'super_admin') as any,
+            empresasAsignadas: auth0User['https://contaempresa.com/empresas'] || ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
+            permisos: auth0User['https://contaempresa.com/permisos'] || ['admin:all'],
             avatar: auth0User.picture,
             paisId: auth0User['https://contaempresa.com/pais'] || 'peru',
             auth0Id: auth0User.sub,
@@ -73,29 +73,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           setUsuario(userFromAuth0);
         } else if (!auth0Loading && !auth0Authenticated) {
-          // Si no está autenticado y Auth0 ya terminó de cargar, crear usuario de desarrollo
-          console.log('⚠️ No autenticado con Auth0, usando usuario de desarrollo');
-          
-          // Crear usuario mock para desarrollo con múltiples empresas
-          const mockUser: Usuario = {
-            id: 'dev-user-123',
-            nombre: 'Usuario de Desarrollo',
-            email: 'dev@contaempresa.com',
-            rol: 'super_admin', // Super admin para acceso completo
-            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
-            permisos: ['admin:all'],
-            paisId: 'peru',
-            activo: true,
-            fechaCreacion: new Date(),
-            configuracion: {
-              idioma: 'es',
-              timezone: 'America/Lima',
-              formatoFecha: 'DD/MM/YYYY',
-              formatoMoneda: 'es-PE'
-            }
-          };
-          
-          setUsuario(mockUser);
+          // Si no está autenticado y Auth0 ya terminó de cargar, limpiar usuario
+          console.log('⚠️ No autenticado con Auth0');
+          setUsuario(null);
         }
       } catch (error) {
         console.error('Error inicializando autenticación:', error);
@@ -131,10 +111,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user: auth0User || usuario,
+      user: auth0User,
       usuario,
       isLoading: isLoading || auth0Loading,
-      isAuthenticated: auth0Authenticated || !!usuario,
+      isAuthenticated: auth0Authenticated,
       login,
       logout,
       hasAccess,

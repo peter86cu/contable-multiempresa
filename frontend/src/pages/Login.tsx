@@ -359,8 +359,7 @@ export const Login: React.FC = () => {
           {/* Información de configuración para Bolt.new */}
           {configInfo.isBolt && configInfo.isConfigValid && !isProblematicDomain && !is403Error && (
             <div className="mt-6 p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="flex items-center space-x-2 mb-3">
-                <CheckCircle className="h-5 w-5 text-green-600" />
+              <div className="flex items-center justify-between mb-2">
                 <h4 className="text-sm font-medium text-green-800">
                   ✅ Configuración Auth0 Válida {configInfo.isCustomDomain && '(Dominio Personalizado)'}
                 </h4>
