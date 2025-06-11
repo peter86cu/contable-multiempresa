@@ -24,20 +24,57 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, isAuthenticated: auth0IsAuthenticated, isLoading: auth0IsLoading, loginWithRedirect, logout: auth0Logout, error: auth0Error } = useAuth0();
+  const { 
+    user: auth0User, 
+    isLoading: auth0Loading, 
+    isAuthenticated: auth0Authenticated,
+    loginWithRedirect,
+    logout: auth0Logout,
+    error: auth0Error
+  } = useAuth0();
+  
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Usar Auth0 para autenticación en lugar del modo desarrollo
   useEffect(() => {
-    // Inicializar autenticación
     const initializeAuth = async () => {
       try {
         setError(null);
         
-        // Si estamos en desarrollo y no hay usuario de Auth0, crear usuario mock
-        if (import.meta.env.DEV && !auth0IsAuthenticated && !auth0IsLoading) {
-          console.log('🔧 Modo desarrollo: Creando usuario mock');
+        if (auth0Loading) {
+          return; // Esperar a que Auth0 termine de cargar
+        }
+        
+        if (auth0Authenticated && auth0User) {
+          console.log('✅ Usuario autenticado con Auth0:', auth0User);
+          
+          // Crear usuario a partir de datos de Auth0
+          const userFromAuth0: Usuario = {
+            id: auth0User.sub,
+            nombre: auth0User.name || 'Usuario',
+            email: auth0User.email || '',
+            rol: (auth0User['https://contaempresa.com/roles'] || 'usuario') as any,
+            empresasAsignadas: auth0User['https://contaempresa.com/empresas'] || [],
+            permisos: auth0User['https://contaempresa.com/permisos'] || [],
+            avatar: auth0User.picture,
+            paisId: auth0User['https://contaempresa.com/pais'] || 'peru',
+            auth0Id: auth0User.sub,
+            activo: true,
+            fechaCreacion: new Date(),
+            configuracion: {
+              idioma: 'es',
+              timezone: 'America/Lima',
+              formatoFecha: 'DD/MM/YYYY',
+              formatoMoneda: 'es-PE'
+            }
+          };
+          
+          setUsuario(userFromAuth0);
+        } else if (!auth0Loading && !auth0Authenticated) {
+          // Si no está autenticado y Auth0 ya terminó de cargar, crear usuario de desarrollo
+          console.log('⚠️ No autenticado con Auth0, usando usuario de desarrollo');
           
           // Crear usuario mock para desarrollo con múltiples empresas
           const mockUser: Usuario = {
@@ -59,36 +96,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           };
           
           setUsuario(mockUser);
-          setIsLoading(false);
-          return;
-        }
-        
-        // Si hay un usuario autenticado en Auth0, usarlo
-        if (auth0IsAuthenticated && user) {
-          console.log('🔐 Usuario autenticado en Auth0:', user.email);
-          
-          // Convertir usuario de Auth0 a nuestro formato
-          const userFromAuth0: Usuario = {
-            id: user.sub,
-            nombre: user.name || 'Usuario',
-            email: user.email,
-            rol: user.rol || 'usuario',
-            empresasAsignadas: user.empresasAsignadas || [],
-            permisos: user.permisos || [],
-            paisId: user.paisId || 'peru',
-            auth0Id: user.sub,
-            activo: true,
-            fechaCreacion: new Date(),
-            avatar: user.picture,
-            configuracion: {
-              idioma: 'es',
-              timezone: 'America/Lima',
-              formatoFecha: 'DD/MM/YYYY',
-              formatoMoneda: 'es-PE'
-            }
-          };
-          
-          setUsuario(userFromAuth0);
         }
       } catch (error) {
         console.error('Error inicializando autenticación:', error);
@@ -98,43 +105,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    if (!auth0IsLoading) {
-      initializeAuth();
-    }
-  }, [auth0IsAuthenticated, auth0IsLoading, user]);
-
-  // Manejar errores de Auth0
-  useEffect(() => {
-    if (auth0Error) {
-      console.error('Error de Auth0:', auth0Error);
-      setError(auth0Error.message || 'Error de autenticación');
-    }
-  }, [auth0Error]);
+    initializeAuth();
+  }, [auth0User, auth0Loading, auth0Authenticated, auth0Error]);
 
   const login = () => {
-    if (import.meta.env.DEV) {
-      // En modo desarrollo, simplemente marcar como autenticado
-      console.log('Login simulado - ya estás autenticado en modo desarrollo');
-    } else {
-      // En producción, redirigir a Auth0
-      loginWithRedirect();
-    }
+    // Usar Auth0 para login
+    loginWithRedirect();
   };
 
   const logout = () => {
-    if (import.meta.env.DEV) {
-      setUsuario(null);
-      setError(null);
-      // En desarrollo, podrías recargar la página o resetear el estado
-      window.location.reload();
-    } else {
-      // En producción, cerrar sesión en Auth0
-      auth0Logout({ 
-        logoutParams: {
-          returnTo: window.location.origin 
-        }
-      });
-    }
+    // Usar Auth0 para logout
+    auth0Logout({ 
+      logoutParams: {
+        returnTo: window.location.origin 
+      }
+    });
+    setUsuario(null);
+    setError(null);
   };
 
   const hasAccess = (empresaId: string): boolean => {
@@ -144,14 +131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user: user || usuario,
+      user: auth0User || usuario,
       usuario,
-      isLoading: isLoading || auth0IsLoading,
-      isAuthenticated: auth0IsAuthenticated || (import.meta.env.DEV && !!usuario),
+      isLoading: isLoading || auth0Loading,
+      isAuthenticated: auth0Authenticated || !!usuario,
       login,
       logout,
       hasAccess,
-      error
+      error: error || (auth0Error ? auth0Error.message : null)
     }}>
       {children}
     </AuthContext.Provider>

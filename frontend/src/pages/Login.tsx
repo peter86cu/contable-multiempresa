@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Building2, AlertCircle, Copy, ExternalLink, Settings, RefreshCw, CheckCircle, Globe, Shield, Key } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAuth0 } from '@auth0/auth0-react';
@@ -9,17 +9,35 @@ export const Login: React.FC = () => {
   const [showDomainHelp, setShowDomainHelp] = useState(false);
   const [show403Help, setShow403Help] = useState(false);
   
-  const { login, isAuthenticated, isLoading, error: authError } = useAuth();
-  const { error: auth0Error, isLoading: auth0Loading } = useAuth0();
+  const { login, isAuthenticated, isLoading } = useAuth();
+  const { error: auth0Error } = useAuth0();
   
   const configInfo = getAuthConfigInfo();
 
-  // Redirigir si ya está autenticado
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      window.location.href = '/';
-    }
-  }, [isAuthenticated, isLoading]);
+  // Si ya está autenticado, mostrar mensaje
+  if (isAuthenticated && !isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 max-w-md">
+          <div className="text-center mb-6">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Ya estás autenticado!</h2>
+            <p className="text-gray-600">
+              Has iniciado sesión correctamente en ContaEmpresa.
+            </p>
+          </div>
+          <div className="mt-6">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
+            >
+              Ir al Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogin = () => {
     if (!configInfo.isConfigValid) {
@@ -95,9 +113,9 @@ export const Login: React.FC = () => {
                         <div>
                           <p className="text-xs font-medium">Allowed Callback URLs:</p>
                           <div className="flex items-center justify-between bg-white p-2 rounded">
-                            <code className="text-xs">{configInfo.requiredUrls?.callback || window.location.origin}</code>
+                            <code className="text-xs">{configInfo.requiredUrls.callback}</code>
                             <button
-                              onClick={() => copyToClipboard(configInfo.requiredUrls?.callback || window.location.origin)}
+                              onClick={() => copyToClipboard(configInfo.requiredUrls.callback)}
                               className="text-red-700 hover:text-red-900"
                             >
                               <Copy className="h-3 w-3" />
@@ -108,9 +126,9 @@ export const Login: React.FC = () => {
                         <div>
                           <p className="text-xs font-medium">Allowed Logout URLs:</p>
                           <div className="flex items-center justify-between bg-white p-2 rounded">
-                            <code className="text-xs">{configInfo.requiredUrls?.logout || window.location.origin}</code>
+                            <code className="text-xs">{configInfo.requiredUrls.logout}</code>
                             <button
-                              onClick={() => copyToClipboard(configInfo.requiredUrls?.logout || window.location.origin)}
+                              onClick={() => copyToClipboard(configInfo.requiredUrls.logout)}
                               className="text-red-700 hover:text-red-900"
                             >
                               <Copy className="h-3 w-3" />
@@ -121,9 +139,9 @@ export const Login: React.FC = () => {
                         <div>
                           <p className="text-xs font-medium">Allowed Web Origins:</p>
                           <div className="flex items-center justify-between bg-white p-2 rounded">
-                            <code className="text-xs">{configInfo.requiredUrls?.webOrigins || window.location.origin}</code>
+                            <code className="text-xs">{configInfo.requiredUrls.webOrigins}</code>
                             <button
-                              onClick={() => copyToClipboard(configInfo.requiredUrls?.webOrigins || window.location.origin)}
+                              onClick={() => copyToClipboard(configInfo.requiredUrls.webOrigins)}
                               className="text-red-700 hover:text-red-900"
                             >
                               <Copy className="h-3 w-3" />
@@ -134,9 +152,9 @@ export const Login: React.FC = () => {
                         <div>
                           <p className="text-xs font-medium">Application Login URI (MUY IMPORTANTE):</p>
                           <div className="flex items-center justify-between bg-white p-2 rounded">
-                            <code className="text-xs">{configInfo.requiredUrls?.loginUri || window.location.origin}</code>
+                            <code className="text-xs">{configInfo.requiredUrls.loginUri}</code>
                             <button
-                              onClick={() => copyToClipboard(configInfo.requiredUrls?.loginUri || window.location.origin)}
+                              onClick={() => copyToClipboard(configInfo.requiredUrls.loginUri)}
                               className="text-red-700 hover:text-red-900"
                             >
                               <Copy className="h-3 w-3" />
@@ -150,7 +168,7 @@ export const Login: React.FC = () => {
                       <p className="font-medium mb-2">3. Habilita Cross-Origin Authentication:</p>
                       <p className="text-xs">• En Auth0 Dashboard → Applications → Tu App → Settings</p>
                       <p className="text-xs">• Marca "Allow Cross-Origin Authentication"</p>
-                      <p className="text-xs">• En "Allowed Origins (CORS)" agrega: <code>{window.location.origin}</code></p>
+                      <p className="text-xs">• En "Allowed Origins (CORS)" agrega: <code>{configInfo.requiredUrls.webOrigins}</code></p>
                     </div>
 
                     <div className="bg-red-200 p-3 rounded">
@@ -186,11 +204,11 @@ export const Login: React.FC = () => {
                   <div className="mt-3 p-3 bg-red-100 rounded border text-xs">
                     <p className="font-medium mb-2">Información técnica:</p>
                     <div className="space-y-1 text-red-700">
-                      <p>• URL actual: {window.location.href}</p>
+                      <p>• URL actual: {configInfo.debugInfo.fullUrl}</p>
                       <p>• Dominio Auth0: {configInfo.domain}</p>
-                      <p>• Client ID: {configInfo.clientId?.substring(0, 8)}...</p>
-                      <p>• Protocolo: {window.location.protocol}</p>
-                      <p>• Puerto: {window.location.port || 'default'}</p>
+                      <p>• Client ID: {configInfo.clientId.substring(0, 8)}...</p>
+                      <p>• Protocolo: {configInfo.debugInfo.protocol}</p>
+                      <p>• Puerto: {configInfo.debugInfo.port || 'default'}</p>
                     </div>
                   </div>
                 )}
@@ -322,10 +340,10 @@ export const Login: React.FC = () => {
           <div className="space-y-6">
             <button
               onClick={handleLogin}
-              disabled={!configInfo.isConfigValid || isLoading || isProblematicDomain || auth0Loading}
+              disabled={!configInfo.isConfigValid || isLoading || isProblematicDomain}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
-              {isLoading || auth0Loading ? (
+              {isLoading ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
                   <span>Cargando...</span>
@@ -365,7 +383,7 @@ export const Login: React.FC = () => {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">1. Allowed Callback URLs:</span>
                         <button
-                          onClick={() => copyToClipboard(window.location.origin)}
+                          onClick={() => copyToClipboard(configInfo.callbackUrl)}
                           className="text-green-600 hover:text-green-800 flex items-center space-x-1"
                         >
                           <Copy className="h-3 w-3" />
@@ -373,7 +391,7 @@ export const Login: React.FC = () => {
                         </button>
                       </div>
                       <code className="text-xs bg-green-100 p-2 rounded block break-all">
-                        {window.location.origin}
+                        {configInfo.callbackUrl}
                       </code>
                     </div>
                     
@@ -381,7 +399,7 @@ export const Login: React.FC = () => {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">2. Allowed Logout URLs:</span>
                         <button
-                          onClick={() => copyToClipboard(window.location.origin)}
+                          onClick={() => copyToClipboard(configInfo.callbackUrl)}
                           className="text-green-600 hover:text-green-800 flex items-center space-x-1"
                         >
                           <Copy className="h-3 w-3" />
@@ -389,7 +407,7 @@ export const Login: React.FC = () => {
                         </button>
                       </div>
                       <code className="text-xs bg-green-100 p-2 rounded block break-all">
-                        {window.location.origin}
+                        {configInfo.callbackUrl}
                       </code>
                     </div>
                     
@@ -397,7 +415,7 @@ export const Login: React.FC = () => {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">3. Allowed Web Origins:</span>
                         <button
-                          onClick={() => copyToClipboard(window.location.origin)}
+                          onClick={() => copyToClipboard(configInfo.callbackUrl)}
                           className="text-green-600 hover:text-green-800 flex items-center space-x-1"
                         >
                           <Copy className="h-3 w-3" />
@@ -405,7 +423,7 @@ export const Login: React.FC = () => {
                         </button>
                       </div>
                       <code className="text-xs bg-green-100 p-2 rounded block break-all">
-                        {window.location.origin}
+                        {configInfo.callbackUrl}
                       </code>
                     </div>
 
@@ -413,7 +431,7 @@ export const Login: React.FC = () => {
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-medium">4. Application Login URI:</span>
                         <button
-                          onClick={() => copyToClipboard(window.location.origin)}
+                          onClick={() => copyToClipboard(configInfo.callbackUrl)}
                           className="text-green-600 hover:text-green-800 flex items-center space-x-1"
                         >
                           <Copy className="h-3 w-3" />
@@ -421,7 +439,7 @@ export const Login: React.FC = () => {
                         </button>
                       </div>
                       <code className="text-xs bg-green-100 p-2 rounded block break-all">
-                        {window.location.origin}
+                        {configInfo.callbackUrl}
                       </code>
                       <p className="text-xs text-green-600 mt-1">
                         ⚠️ Esta configuración es <strong>obligatoria</strong> para que funcione el login
@@ -434,7 +452,7 @@ export const Login: React.FC = () => {
                         <div className="bg-green-100 p-2 rounded">
                           <p className="font-medium">Cross-Origin Authentication:</p>
                           <p>• Activar "Allow Cross-Origin Authentication"</p>
-                          <p>• En "Allowed Origins (CORS)" agregar: <code>{window.location.origin}</code></p>
+                          <p>• En "Allowed Origins (CORS)" agregar: <code>{configInfo.callbackUrl}</code></p>
                         </div>
                         <div className="bg-green-100 p-2 rounded">
                           <p className="font-medium">Application Type:</p>
@@ -469,18 +487,15 @@ export const Login: React.FC = () => {
                 <Settings className="h-4 w-4 text-gray-600" />
               </div>
               <div className="text-sm text-gray-700 space-y-1">
-                <p>• Entorno: {configInfo.environment || 'Development'}</p>
-                <p>• URL de callback: {window.location.origin}</p>
-                <p>• Hostname: {window.location.hostname}</p>
+                <p>• Entorno: {configInfo.environment}</p>
+                <p>• URL de callback: {configInfo.callbackUrl}</p>
+                <p>• Hostname: {configInfo.hostname}</p>
                 <p>• Dominio Auth0: {configInfo.domain}</p>
-                <p>• Client ID: {configInfo.clientId?.substring(0, 8)}...</p>
+                <p>• Client ID: {configInfo.clientId.substring(0, 8)}...</p>
                 <p>• Configuración válida: {configInfo.isConfigValid ? '✅' : '❌'}</p>
                 <p>• Dominio personalizado: {configInfo.isCustomDomain ? '✅' : '❌'}</p>
                 <p>• Dominio problemático: {isProblematicDomain ? '❌' : '✅'}</p>
                 <p>• Error 403: {is403Error ? '❌' : '✅'}</p>
-                <p>• Auth0 Error: {auth0Error ? '❌' : '✅'}</p>
-                <p>• Auth0 Loading: {auth0Loading ? '⏳' : '✅'}</p>
-                <p>• Auth0 Authenticated: {auth0Loading ? '⏳' : '✅'}</p>
               </div>
             </div>
           )}
