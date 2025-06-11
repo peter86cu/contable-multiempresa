@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Usuario } from '../types';
-import { tienePermiso } from '../services/auth0/roles';
 
 interface AuthContextType {
   user: any;

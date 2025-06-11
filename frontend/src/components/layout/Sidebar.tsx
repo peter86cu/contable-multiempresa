@@ -15,8 +15,7 @@ import {
   FileBarChart,
   ArrowLeftRight,
   X,
-  Database,
-  Shield
+  Database
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -27,13 +26,15 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const [expandedMenu, setExpandedMenu] = React.useState<string | null>('Contabilidad');
-  const { hasPermission } = useAuth();
+  const { usuario, hasPermission } = useAuth();
 
   const toggleSubmenu = (title: string) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // Definición de menús con control de permisos
+  // Verificar si el usuario tiene el permiso admin:all
+  const isAdmin = usuario?.permisos?.includes('admin:all') || false;
+
   const menuItems = [
     {
       title: 'Dashboard',
@@ -192,8 +193,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {menuItems.map((item) => {
-            // Verificar permiso para mostrar el ítem de menú
-            const tienePermiso = item.permiso === null || hasPermission(item.permiso);
+            // Si el usuario tiene admin:all, mostrar todos los menús
+            // De lo contrario, verificar el permiso específico
+            const tienePermiso = isAdmin || item.permiso === null || hasPermission(item.permiso);
             
             // Si no tiene permiso, no mostrar el ítem
             if (!tienePermiso) return null;
@@ -220,8 +222,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {expandedMenu === item.title && (
                       <div className="ml-4 mt-2 space-y-1">
                         {item.submenu.map((subItem) => {
-                          // Verificar permiso para el subítem
-                          const tienePermisoSub = subItem.permiso === null || hasPermission(subItem.permiso);
+                          // Si el usuario tiene admin:all, mostrar todos los submenús
+                          // De lo contrario, verificar el permiso específico
+                          const tienePermisoSub = isAdmin || subItem.permiso === null || hasPermission(subItem.permiso);
                           
                           // Si no tiene permiso, no mostrar el subítem
                           if (!tienePermisoSub) return null;
