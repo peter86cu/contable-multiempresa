@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return usuario.empresasAsignadas.includes(empresaId);
   };
 
-  // Nuevo método para verificar permisos
+  // Método para verificar permisos
   const hasPermission = (permiso: string): boolean => {
     if (!usuario) return false;
     
