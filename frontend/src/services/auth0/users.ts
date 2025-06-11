@@ -62,7 +62,7 @@ export class Auth0UsersService {
     } catch (error) {
       console.error('Error obteniendo usuarios de Auth0:', error);
       
-      // En caso de error, devolver datos mock en desarrollo
+      // En caso de error en desarrollo, devolver datos mock
       if (import.meta.env.DEV) {
         console.log('Devolviendo datos mock como fallback');
         return this.getMockUsers();

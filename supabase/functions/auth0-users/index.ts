@@ -296,7 +296,42 @@ Deno.serve(async (req) => {
         
         return new Response(
           JSON.stringify(usuariosMapeados),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'X-Mock-Data': 'true'
+            } 
+          }
+        );
+      } else if (method === 'GET' && path.length === 1) {
+        // Devolver usuario específico mock
+        const userId = path[0];
+        const mockUsers = getMockUsers();
+        const mockUser = mockUsers.find(u => u.user_id === userId) || mockUsers[0];
+        
+        const usuarioMapeado = {
+          id: mockUser.user_id,
+          email: mockUser.email,
+          nombre: mockUser.name || mockUser.email?.split('@')[0] || 'Usuario',
+          avatar: mockUser.picture,
+          rol: mockUser.app_metadata?.rol || 'usuario',
+          empresasAsignadas: mockUser.app_metadata?.empresas || [],
+          permisos: mockUser.app_metadata?.permisos || [],
+          fechaCreacion: mockUser.created_at,
+          ultimaConexion: mockUser.last_login,
+          activo: !mockUser.blocked
+        };
+        
+        return new Response(
+          JSON.stringify(usuarioMapeado),
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'X-Mock-Data': 'true'
+            } 
+          }
         );
       } else if (method === 'POST' && path.length === 0) {
         // Simular creación de usuario
@@ -322,7 +357,11 @@ Deno.serve(async (req) => {
           }),
           { 
             status: 201,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json',
+              'X-Mock-Data': 'true'
+            } 
           }
         );
       }
@@ -335,7 +374,11 @@ Deno.serve(async (req) => {
         }),
         { 
           status: 404, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'X-Mock-Data': 'true'
+          } 
         }
       );
     }
@@ -462,9 +505,17 @@ Deno.serve(async (req) => {
       else if (path.length === 1) {
         try {
           const userId = path[0];
+          console.log(`Obteniendo usuario específico: ${userId}`);
+          
+          // Verificar si el userId está codificado
+          const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+          console.log(`ID de usuario decodificado: ${decodedUserId}`);
           
           // Obtener usuario de Auth0
-          const response = await fetch(`https://${envVars.AUTH0_DOMAIN}/api/v2/users/${userId}`, {
+          const url = `https://${envVars.AUTH0_DOMAIN}/api/v2/users/${encodeURIComponent(decodedUserId)}`;
+          console.log(`URL de solicitud: ${url}`);
+          
+          const response = await fetch(url, {
             headers: {
               'Authorization': `Bearer ${managementToken}`,
               'Content-Type': 'application/json',
@@ -472,10 +523,14 @@ Deno.serve(async (req) => {
           });
 
           if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Error obteniendo usuario de Auth0: ${response.status} ${response.statusText}`);
+            console.error(`Respuesta: ${errorText}`);
             throw new Error(`Error obteniendo usuario de Auth0: ${response.status} ${response.statusText}`);
           }
 
           const usuario = await response.json();
+          console.log(`Usuario obtenido correctamente: ${usuario.user_id}`);
           
           // Mapear usuario a formato deseado
           const usuarioMapeado = {
@@ -501,7 +556,15 @@ Deno.serve(async (req) => {
           
           // Devolver usuario mock en caso de error
           const mockUsers = getMockUsers();
-          const mockUser = mockUsers.find(u => u.user_id === path[0]) || mockUsers[0];
+          const userId = path[0];
+          const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+          
+          // Buscar por ID exacto o por ID parcial (sin el prefijo auth0|)
+          const mockUser = mockUsers.find(u => 
+            u.user_id === decodedUserId || 
+            u.user_id === `auth0|${decodedUserId}` ||
+            decodedUserId.includes(u.user_id.replace('auth0|', ''))
+          ) || mockUsers[0];
           
           const usuarioMapeado = {
             id: mockUser.user_id,
@@ -599,8 +662,12 @@ Deno.serve(async (req) => {
         const userId = path[0];
         const body = await req.json();
         
+        // Verificar si el userId está codificado
+        const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+        console.log(`ID de usuario decodificado para actualización: ${decodedUserId}`);
+        
         // Actualizar usuario en Auth0
-        const usuarioActualizado = await updateAuth0User(envVars.AUTH0_DOMAIN!, managementToken, userId, body);
+        const usuarioActualizado = await updateAuth0User(envVars.AUTH0_DOMAIN!, managementToken, decodedUserId, body);
         
         // Mapear usuario a formato deseado
         const usuarioMapeado = {
@@ -629,7 +696,14 @@ Deno.serve(async (req) => {
         
         // Buscar usuario mock
         const mockUsers = getMockUsers();
-        const mockUser = mockUsers.find(u => u.user_id === userId) || mockUsers[0];
+        const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+        
+        // Buscar por ID exacto o por ID parcial (sin el prefijo auth0|)
+        const mockUser = mockUsers.find(u => 
+          u.user_id === decodedUserId || 
+          u.user_id === `auth0|${decodedUserId}` ||
+          decodedUserId.includes(u.user_id.replace('auth0|', ''))
+        ) || mockUsers[0];
         
         // Actualizar datos
         const updatedUser = {
@@ -669,8 +743,12 @@ Deno.serve(async (req) => {
       try {
         const userId = path[0];
         
+        // Verificar si el userId está codificado
+        const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+        console.log(`ID de usuario decodificado para eliminación: ${decodedUserId}`);
+        
         // Eliminar usuario en Auth0
-        await deleteAuth0User(envVars.AUTH0_DOMAIN!, managementToken, userId);
+        await deleteAuth0User(envVars.AUTH0_DOMAIN!, managementToken, decodedUserId);
         
         // Devolver respuesta
         return new Response(
