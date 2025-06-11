@@ -220,11 +220,11 @@ Deno.serve(async (req) => {
         const perPage = parseInt(url.searchParams.get('per_page') || '100');
         const query = url.searchParams.get('q') || '';
 
-        // Preparar parámetros para Auth0 API
+        // Preparar parámetros para Auth0 API - Simplificado para evitar Bad Request
         const params: any = {
           page,
           per_page: perPage,
-          fields: 'user_id,email,name,nickname,picture,user_metadata,app_metadata,created_at,updated_at,last_login',
+          fields: 'user_id,email,name,nickname,picture,created_at,updated_at,last_login,blocked',
           include_fields: true
         };
 
@@ -250,23 +250,50 @@ Deno.serve(async (req) => {
         });
 
         if (!response.ok) {
-          throw new Error(`Error obteniendo usuarios de Auth0: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error('Auth0 API Error Response:', errorText);
+          throw new Error(`Error obteniendo usuarios de Auth0: ${response.status} ${response.statusText}`);
         }
 
         const usuarios = await response.json();
 
-        // Mapear usuarios a formato deseado
-        const usuariosMapeados = usuarios.map((u: any) => ({
-          id: u.user_id,
-          email: u.email,
-          nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
-          avatar: u.picture,
-          rol: u.app_metadata?.rol || 'usuario',
-          empresasAsignadas: u.app_metadata?.empresas || [],
-          permisos: u.app_metadata?.permisos || [],
-          fechaCreacion: u.created_at,
-          ultimaConexion: u.last_login,
-          activo: !u.blocked
+        // Para obtener metadata, hacer una segunda llamada para cada usuario
+        const usuariosMapeados = await Promise.all(usuarios.map(async (u: any) => {
+          let metadata = { rol: 'usuario', empresas: [], permisos: [] };
+          
+          try {
+            // Obtener metadata del usuario individualmente
+            const userResponse = await fetch(`https://${domain}/api/v2/users/${u.user_id}?fields=app_metadata`, {
+              headers: {
+                'Authorization': `Bearer ${managementToken}`,
+                'Content-Type': 'application/json',
+              }
+            });
+            
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              metadata = {
+                rol: userData.app_metadata?.rol || 'usuario',
+                empresas: userData.app_metadata?.empresas || [],
+                permisos: userData.app_metadata?.permisos || []
+              };
+            }
+          } catch (error) {
+            console.warn(`Error obteniendo metadata para usuario ${u.user_id}:`, error);
+          }
+
+          return {
+            id: u.user_id,
+            email: u.email,
+            nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
+            avatar: u.picture,
+            rol: metadata.rol,
+            empresasAsignadas: metadata.empresas,
+            permisos: metadata.permisos,
+            fechaCreacion: u.created_at,
+            ultimaConexion: u.last_login,
+            activo: !u.blocked
+          };
         }));
 
         // Devolver respuesta
@@ -288,7 +315,9 @@ Deno.serve(async (req) => {
         });
 
         if (!response.ok) {
-          throw new Error(`Error obteniendo usuario de Auth0: ${response.statusText}`);
+          const errorText = await response.text();
+          console.error('Auth0 API Error Response:', errorText);
+          throw new Error(`Error obteniendo usuario de Auth0: ${response.status} ${response.statusText}`);
         }
 
         const usuario = await response.json();
