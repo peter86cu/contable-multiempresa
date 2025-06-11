@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
         const params: any = {
           page,
           per_page: perPage,
-          fields: 'user_id,email,name,nickname,picture,user_metadata,app_metadata,created_at,updated_at,last_login',
+          fields: 'user_id,email,name,nickname,picture,created_at,updated_at,last_login',
           include_fields: true
         };
 
