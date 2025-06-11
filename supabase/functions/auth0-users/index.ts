@@ -1,5 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js';
-import { ManagementClient } from 'npm:auth0@3.6.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Configuración de CORS
 const corsHeaders = {
@@ -38,6 +37,53 @@ function validateEnvironmentVariables() {
   return requiredVars;
 }
 
+// Función para obtener token de Auth0 Management API
+async function getAuth0ManagementToken(domain: string, clientId: string, clientSecret: string) {
+  const response = await fetch(`https://${domain}/oauth/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      audience: `https://${domain}/api/v2/`,
+      grant_type: 'client_credentials'
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error obteniendo token de Auth0: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+}
+
+// Función para obtener usuarios de Auth0
+async function getAuth0Users(domain: string, token: string, params: any) {
+  const searchParams = new URLSearchParams();
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      searchParams.append(key, String(value));
+    }
+  });
+
+  const response = await fetch(`https://${domain}/api/v2/users?${searchParams.toString()}`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error obteniendo usuarios de Auth0: ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
 // Función principal
 Deno.serve(async (req) => {
   // Manejar CORS
@@ -57,13 +103,12 @@ Deno.serve(async (req) => {
     // Validar variables de entorno
     const envVars = validateEnvironmentVariables();
 
-    // Inicializar cliente de Auth0 Management API
-    const auth0 = new ManagementClient({
-      domain: envVars.AUTH0_DOMAIN,
-      clientId: envVars.AUTH0_MGMT_CLIENT_ID,
-      clientSecret: envVars.AUTH0_MGMT_CLIENT_SECRET,
-      scope: 'read:users read:user_idp_tokens read:roles'
-    });
+    // Obtener token de Auth0 Management API
+    const managementToken = await getAuth0ManagementToken(
+      envVars.AUTH0_DOMAIN!,
+      envVars.AUTH0_MGMT_CLIENT_ID!,
+      envVars.AUTH0_MGMT_CLIENT_SECRET!
+    );
 
     // Obtener parámetros de consulta
     const url = new URL(req.url);
@@ -71,7 +116,7 @@ Deno.serve(async (req) => {
     const perPage = parseInt(url.searchParams.get('per_page') || '100');
     const query = url.searchParams.get('q') || '';
 
-    // Obtener usuarios de Auth0
+    // Preparar parámetros para Auth0 API
     const params: any = {
       page,
       per_page: perPage,
@@ -84,10 +129,11 @@ Deno.serve(async (req) => {
       params.search_engine = 'v3';
     }
 
-    const usuarios = await auth0.getUsers(params);
+    // Obtener usuarios de Auth0
+    const usuarios = await getAuth0Users(envVars.AUTH0_DOMAIN!, managementToken, params);
 
     // Mapear usuarios a formato deseado
-    const usuariosMapeados = usuarios.map(u => ({
+    const usuariosMapeados = usuarios.map((u: any) => ({
       id: u.user_id,
       email: u.email,
       nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
