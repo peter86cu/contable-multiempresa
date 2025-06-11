@@ -52,35 +52,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
-          // Buscar permisos en múltiples ubicaciones posibles
+          // Obtener permisos y rol desde los metadatos de Auth0
+          // Buscar en múltiples ubicaciones posibles
           console.log('🔍 Buscando permisos en:', auth0User);
           
-          // SOLUCIÓN DIRECTA: Forzar admin:all para este usuario
-          let permisos = ['admin:all'];
+          // Buscar permisos en diferentes ubicaciones
+          const permisos = auth0User['https://contaempresa.com/permisos'] || 
+                          auth0User.app_metadata?.permisos || 
+                          auth0User.user_metadata?.permisos ||
+                          auth0User['permisos'] ||
+                          ['contabilidad:read'];
           
-          // Verificar si los permisos están en user_metadata
-          if (auth0User.user_metadata && auth0User.user_metadata.permisos) {
-            console.log('🔍 Permisos encontrados en user_metadata:', auth0User.user_metadata.permisos);
-            permisos = auth0User.user_metadata.permisos;
-            
-            // Asegurarse de que admin:all esté incluido
-            if (!permisos.includes('admin:all')) {
-              permisos.push('admin:all');
-            }
-          }
+          console.log('🔑 Permisos encontrados:', permisos);
           
-          console.log('🔑 Permisos finales asignados:', permisos);
-          
-          // Buscar rol en múltiples ubicaciones
+          // Buscar rol en diferentes ubicaciones
           const rol = auth0User['https://contaempresa.com/rol'] || 
                      auth0User.app_metadata?.rol || 
                      auth0User.user_metadata?.rol ||
                      auth0User['rol'] ||
-                     'super_admin'; // Forzar super_admin
+                     'usuario';
           
           console.log('👤 Rol encontrado:', rol);
           
-          // Buscar empresas asignadas en múltiples ubicaciones
+          // Buscar empresas asignadas en diferentes ubicaciones
           const empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
                                    auth0User.app_metadata?.empresas || 
                                    auth0User.user_metadata?.empresas ||
@@ -157,10 +151,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     
-    // CAMBIO IMPORTANTE: Verificar primero si tiene admin:all
+    // Si tiene admin:all, tiene todos los permisos
     if (usuario.permisos.includes('admin:all')) {
       console.log(`🔍 Verificando permiso ${permiso}: ✅ Sí (por admin:all)`);
-      console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')} (incluye admin:all)`);
+      console.log(`🔑 Permisos disponibles: admin:all`);
       return true;
     }
     

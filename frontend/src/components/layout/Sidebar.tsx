@@ -17,7 +17,7 @@ import {
   X,
   Database
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -198,11 +198,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {menuItems.map((item) => {
             // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los menús
             // Si no, verificar el permiso específico
-            console.log(`🔍 SIDEBAR - Evaluando ítem: ${item.title}, permiso: ${item.permiso}`);
             const tienePermiso = hasAdminAll || 
                                item.permiso === null || 
                                (item.permiso && hasPermission(item.permiso));
             
+            console.log(`🔍 SIDEBAR - Evaluando ítem: ${item.title}, permiso: ${item.permiso}`);
             console.log(`🔑 SIDEBAR - Ítem ${item.title} - Tiene permiso: ${tienePermiso}`);
             
             // Si no tiene permiso, no mostrar el ítem
@@ -235,11 +235,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         {item.submenu.map((subItem) => {
                           // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los submenús
                           // Si no, verificar el permiso específico
-                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
                           const tienePermisoSub = hasAdminAll || 
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
                           
+                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
                           console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub}`);
                           
                           // Si no tiene permiso, no mostrar el subítem

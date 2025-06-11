@@ -29,6 +29,8 @@ export class Auth0UsersService {
       if (options.perPage !== undefined) params.append('per_page', options.perPage.toString());
       if (options.query) params.append('q', options.query);
 
+      console.log(`Llamando a Edge Function: ${this.baseUrl}?${params.toString()}`);
+
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
         headers: {
@@ -38,7 +40,8 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        console.error('Error en Auth0 API:', error);
         throw new Error(`Error en Auth0 API: ${error.message || response.statusText}`);
       }
 
@@ -121,6 +124,8 @@ export class Auth0UsersService {
         }
       };
 
+      console.log('Enviando datos a Edge Function para crear usuario:', requestData.email);
+
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}`, {
         method: 'POST',
@@ -132,7 +137,8 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        console.error('Error creando usuario en Auth0:', error);
         throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
       }
 
@@ -185,6 +191,8 @@ export class Auth0UsersService {
         requestData.app_metadata = appMetadata;
       }
 
+      console.log('Enviando datos a Edge Function para actualizar usuario:', userId);
+
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}/${userId}`, {
         method: 'PATCH',
@@ -196,7 +204,8 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({ message: response.statusText }));
+        console.error('Error actualizando usuario en Auth0:', error);
         throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
       }
 

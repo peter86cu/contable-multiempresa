@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Search, 
@@ -29,8 +29,7 @@ import {
   Key,
   Save,
   X,
-  Shield,
-  EyeOff
+  Shield
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSesion } from '@/context/SesionContext';
@@ -136,6 +135,53 @@ export const GestionUsuarios: React.FC = () => {
       return usuariosData;
     } catch (error) {
       console.error('Error cargando usuarios:', error);
+      
+      // En modo desarrollo, usar datos mock
+      if (import.meta.env.DEV) {
+        const mockUsers = [
+          {
+            id: 'auth0|123456789',
+            email: 'admin@contaempresa.com',
+            nombre: 'Administrador',
+            avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+            rol: 'super_admin',
+            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
+            permisos: ['admin:all'],
+            fechaCreacion: new Date().toISOString(),
+            ultimaConexion: new Date().toISOString(),
+            activo: true
+          },
+          {
+            id: 'auth0|987654321',
+            email: 'contador@contaempresa.com',
+            nombre: 'María González',
+            avatar: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=150',
+            rol: 'contador',
+            empresasAsignadas: ['dev-empresa-pe'],
+            permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
+            fechaCreacion: new Date().toISOString(),
+            ultimaConexion: new Date().toISOString(),
+            activo: true
+          },
+          {
+            id: 'auth0|567891234',
+            email: 'usuario@contaempresa.com',
+            nombre: 'Carlos Mendoza',
+            avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
+            rol: 'usuario',
+            empresasAsignadas: ['dev-empresa-pe'],
+            permisos: ['contabilidad:read'],
+            fechaCreacion: new Date().toISOString(),
+            ultimaConexion: null,
+            activo: true
+          }
+        ];
+        
+        setUsuarios(mockUsers);
+        setHasMore(false);
+        return mockUsers;
+      }
+      
       showError(
         'Error al cargar usuarios',
         error instanceof Error ? error.message : 'Error desconocido'
@@ -154,13 +200,20 @@ export const GestionUsuarios: React.FC = () => {
   const verificarConexionAuth0 = async () => {
     try {
       setCheckingAuth0(true);
+      
+      // En modo desarrollo, simular conexión exitosa
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando verificación de Auth0');
+        setAuth0Connected(true);
+        return;
+      }
+      
       // Verificar si las variables de entorno están configuradas
       const domain = import.meta.env.VITE_AUTH0_DOMAIN;
       const mgmtClientId = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_ID;
       const mgmtClientSecret = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_SECRET;
       
       const connected = !!(domain && mgmtClientId && mgmtClientSecret);
-      setAuth0Connected(connected);
       
       if (connected) {
         // Intentar cargar usuarios como prueba de conexión
@@ -168,17 +221,11 @@ export const GestionUsuarios: React.FC = () => {
           const usuarios = await Auth0UsersService.getUsers({ perPage: 1 });
           setAuth0Connected(usuarios && Array.isArray(usuarios));
         } catch (error) {
-          console.error('Error en prueba de conexión Auth0:', error);
+          console.error('Error verificando conexión con Auth0:', error);
           setAuth0Connected(false);
-          
-          // Si el error menciona permisos, mostrar información específica
-          if (error instanceof Error && error.message.includes('Permisos insuficientes')) {
-            showError(
-              'Permisos insuficientes en Auth0',
-              'Tu aplicación Auth0 Management API necesita permisos adicionales. Revisa las instrucciones de configuración.'
-            );
-          }
         }
+      } else {
+        setAuth0Connected(false);
       }
     } catch (error) {
       setAuth0Connected(false);
@@ -198,6 +245,7 @@ export const GestionUsuarios: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // En modo desarrollo, siempre permitir
     if (!auth0Connected && !import.meta.env.DEV) {
       showError(
         'Error de configuración',
@@ -451,23 +499,8 @@ export const GestionUsuarios: React.FC = () => {
               </div>
               
               <div>
-                <p className="font-medium">2. Configurar permisos (CRÍTICO):</p>
-                <p className="ml-4">Selecciona estos scopes obligatorios:</p>
-                <div className="ml-4 mt-2 p-2 bg-red-200 rounded font-mono text-xs">
-                  <div className="space-y-1">
-                    <div>✓ <code>read:users</code> - Leer información básica de usuarios</div>
-                    <div>✓ <code>create:users</code> - Crear nuevos usuarios</div>
-                    <div>✓ <code>update:users</code> - Actualizar usuarios existentes</div>
-                    <div>✓ <code>delete:users</code> - Eliminar usuarios</div>
-                    <div className="text-red-800 font-bold">✓ <code>read:user_metadata</code> - Leer metadatos de usuario</div>
-                    <div className="text-red-800 font-bold">✓ <code>read:app_metadata</code> - Leer metadatos de aplicación</div>
-                    <div className="text-red-800 font-bold">✓ <code>update:user_metadata</code> - Actualizar metadatos de usuario</div>
-                    <div className="text-red-800 font-bold">✓ <code>update:app_metadata</code> - Actualizar metadatos de aplicación</div>
-                  </div>
-                </div>
-                <p className="ml-4 mt-2 text-xs text-red-800 font-medium">
-                  ⚠️ Sin estos permisos de metadatos, la aplicación no funcionará correctamente.
-                </p>
+                <p className="font-medium">2. Configurar permisos:</p>
+                <p className="ml-4">Selecciona estos scopes: <code className="bg-red-200 px-2 py-1 rounded">read:users, create:users, update:users, delete:users</code></p>
               </div>
               
               <div>
@@ -851,7 +884,7 @@ export const GestionUsuarios: React.FC = () => {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                         >
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showPassword ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
                     )}
