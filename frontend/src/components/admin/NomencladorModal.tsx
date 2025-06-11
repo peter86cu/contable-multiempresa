@@ -128,32 +128,34 @@ export const NomencladorModal: React.FC<NomencladorModalProps> = ({
         
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Campos comunes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre *
-            </label>
-            <input
-              type="text"
-              value={formData.nombre}
-              onChange={(e) => setFormData({...formData, nombre: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-              disabled={saving}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Código *
-            </label>
-            <input
-              type="text"
-              value={formData.codigo}
-              onChange={(e) => setFormData({...formData, codigo: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-              disabled={saving}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Nombre *
+              </label>
+              <input
+                type="text"
+                value={formData.nombre}
+                onChange={(e) => setFormData({...formData, nombre: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+                disabled={saving}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Código *
+              </label>
+              <input
+                type="text"
+                value={formData.codigo}
+                onChange={(e) => setFormData({...formData, codigo: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                required
+                disabled={saving}
+              />
+            </div>
           </div>
           
           <div>

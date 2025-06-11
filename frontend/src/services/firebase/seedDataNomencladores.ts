@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, writeBatch, doc, query, where, setDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, writeBatch, doc, query, where, setDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { 
@@ -17,6 +17,12 @@ export class SeedDataNomencladoresService {
   static async existenNomencladores(paisId: string): Promise<boolean> {
     try {
       console.log(`🔍 Verificando nomencladores para país: ${paisId}`);
+      
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
       
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
       const q = query(tiposDocRef, where('paisId', '==', paisId));
@@ -194,6 +200,12 @@ export class SeedDataNomencladoresService {
   }> {
     try {
       console.log('📊 Obteniendo estadísticas de nomencladores');
+      
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
       
       const [
         tiposDocIdentidad,

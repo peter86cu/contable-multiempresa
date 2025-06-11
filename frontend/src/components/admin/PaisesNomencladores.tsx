@@ -45,13 +45,13 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
           {paises.map((pais) => (
             <tr 
               key={pais.id} 
-              className={`hover:bg-gray-50 cursor-pointer ${paisSeleccionado === pais.id ? 'bg-purple-50' : ''}`}
+              className={`hover:bg-gray-50 cursor-pointer ${paisSeleccionado === pais.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
               onClick={() => onSelectPais(pais.id)}
             >
               <td className="px-4 py-3 whitespace-nowrap">
                 <div className="flex items-center">
-                  <div className="flex-shrink-0 h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Globe className="h-4 w-4 text-gray-600" />
+                  <div className="flex-shrink-0 h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <Globe className="h-4 w-4 text-indigo-600" />
                   </div>
                   <div className="ml-3">
                     <div className="text-sm font-medium text-gray-900">{pais.nombre}</div>
@@ -88,7 +88,7 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
                 )}
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-center">
-                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-purple-100 text-purple-800">
+                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
                   {pais.totalNomencladores}
                 </span>
               </td>

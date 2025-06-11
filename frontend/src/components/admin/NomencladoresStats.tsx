@@ -40,8 +40,8 @@ export const NomencladoresStats: React.FC<NomencladoresStatsProps> = ({
       value: estadisticas.totalNomencladores.toString(),
       subtitle: `En ${estadisticas.totalPaises} países`,
       icon: Database,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-500'
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-500'
     },
     {
       title: 'Documentos de Identidad',

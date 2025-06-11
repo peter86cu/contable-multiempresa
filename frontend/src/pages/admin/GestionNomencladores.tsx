@@ -392,7 +392,12 @@ function GestionNomencladores() {
                   { id: 'colombia', nombre: 'Colombia', codigo: 'CO', totalNomencladores: 22, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
                   { id: 'mexico', nombre: 'México', codigo: 'MX', totalNomencladores: 20, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
                   { id: 'argentina', nombre: 'Argentina', codigo: 'AR', totalNomencladores: 18, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'chile', nombre: 'Chile', codigo: 'CL', totalNomencladores: 16, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true }
+                  { id: 'chile', nombre: 'Chile', codigo: 'CL', totalNomencladores: 16, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
+                  { id: 'uruguay', nombre: 'Uruguay', codigo: 'UY', totalNomencladores: 16, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
+                  { id: 'paraguay', nombre: 'Paraguay', codigo: 'PY', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
+                  { id: 'bolivia', nombre: 'Bolivia', codigo: 'BO', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
+                  { id: 'ecuador', nombre: 'Ecuador', codigo: 'EC', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
+                  { id: 'venezuela', nombre: 'Venezuela', codigo: 'VE', totalNomencladores: 12, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true }
                 ]}
                 onSelectPais={setSelectedPais}
                 paisSeleccionado={selectedPais}
@@ -625,7 +630,7 @@ function GestionNomencladores() {
       {/* Contenido principal */}
       {renderMainContent()}
 
-      {/* Modal de nuevo país */}
+      {/* Modales */}
       {showPaisModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -827,5 +832,27 @@ function GestionNomencladores() {
     </div>
   );
 }
+
+// Componente Database para el icono
+const Database = (props: any) => {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    </svg>
+  );
+};
 
 export { GestionNomencladores }
