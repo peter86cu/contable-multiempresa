@@ -58,7 +58,7 @@ export class UsuarioService {
         password: password,
         name: userData.nombre,
         metadata: {
-          empresas: userData.empresas,
+          empresasAsignadas: userData.empresas,
           rol: userData.rol,
           subdominio: userData.empresas[0] || '',
           permisos: userData.permisos
