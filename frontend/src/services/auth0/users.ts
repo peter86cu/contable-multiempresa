@@ -29,6 +29,8 @@ export class Auth0UsersService {
       if (options.perPage !== undefined) params.append('per_page', options.perPage.toString());
       if (options.query) params.append('q', options.query);
 
+      console.log(`Fetching users from: ${this.baseUrl}?${params.toString()}`);
+
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
         headers: {
@@ -120,6 +122,8 @@ export class Auth0UsersService {
           creation_date: new Date().toISOString()
         }
       };
+
+      console.log(`Creating user in Auth0: ${this.baseUrl}`);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}`, {

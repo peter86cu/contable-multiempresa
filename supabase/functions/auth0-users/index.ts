@@ -78,9 +78,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Obtener token de Auth0 Management API
-    const managementToken = await getAuth0ManagementToken();
-
     // Obtener la URL y método de la solicitud
     const url = new URL(req.url);
     const method = req.method;
@@ -205,6 +202,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Obtener token de Auth0 Management API
+    const managementToken = await getAuth0ManagementToken();
+
     // Obtener dominio de Auth0
     const domain = Deno.env.get('AUTH0_DOMAIN');
     if (!domain) {
@@ -220,26 +220,21 @@ Deno.serve(async (req) => {
         const perPage = parseInt(url.searchParams.get('per_page') || '100');
         const query = url.searchParams.get('q') || '';
 
-        // Preparar parámetros para Auth0 API - Simplificado para evitar Bad Request
-        const params: any = {
-          page,
-          per_page: perPage,
-          fields: 'user_id,email,name,nickname,picture,created_at,updated_at,last_login,blocked',
-          include_fields: true
-        };
-
-        if (query) {
-          params.q = query;
-          params.search_engine = 'v2';
-        }
-
         // Construir URL con parámetros
         const searchParams = new URLSearchParams();
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            searchParams.append(key, String(value));
-          }
-        });
+        searchParams.append('page', page.toString());
+        searchParams.append('per_page', perPage.toString());
+        searchParams.append('fields', 'user_id,email,name,nickname,picture,created_at,updated_at,last_login,blocked,app_metadata');
+        searchParams.append('include_fields', 'true');
+        
+        // Solo agregar parámetros de búsqueda si hay una consulta
+        if (query) {
+          searchParams.append('q', query);
+          // Usar v2 en lugar de v3 para evitar el error 400
+          searchParams.append('search_engine', 'v2');
+        }
+
+        console.log(`Fetching users from Auth0: https://${domain}/api/v2/users?${searchParams.toString()}`);
 
         // Obtener usuarios de Auth0
         const response = await fetch(`https://${domain}/api/v2/users?${searchParams.toString()}`, {
@@ -256,44 +251,20 @@ Deno.serve(async (req) => {
         }
 
         const usuarios = await response.json();
+        console.log(`Retrieved ${usuarios.length} users from Auth0`);
 
-        // Para obtener metadata, hacer una segunda llamada para cada usuario
-        const usuariosMapeados = await Promise.all(usuarios.map(async (u: any) => {
-          let metadata = { rol: 'usuario', empresas: [], permisos: [] };
-          
-          try {
-            // Obtener metadata del usuario individualmente
-            const userResponse = await fetch(`https://${domain}/api/v2/users/${u.user_id}?fields=app_metadata`, {
-              headers: {
-                'Authorization': `Bearer ${managementToken}`,
-                'Content-Type': 'application/json',
-              }
-            });
-            
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              metadata = {
-                rol: userData.app_metadata?.rol || 'usuario',
-                empresas: userData.app_metadata?.empresas || [],
-                permisos: userData.app_metadata?.permisos || []
-              };
-            }
-          } catch (error) {
-            console.warn(`Error obteniendo metadata para usuario ${u.user_id}:`, error);
-          }
-
-          return {
-            id: u.user_id,
-            email: u.email,
-            nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
-            avatar: u.picture,
-            rol: metadata.rol,
-            empresasAsignadas: metadata.empresas,
-            permisos: metadata.permisos,
-            fechaCreacion: u.created_at,
-            ultimaConexion: u.last_login,
-            activo: !u.blocked
-          };
+        // Mapear usuarios a formato deseado
+        const usuariosMapeados = usuarios.map((u: any) => ({
+          id: u.user_id,
+          email: u.email,
+          nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
+          avatar: u.picture,
+          rol: u.app_metadata?.rol || 'usuario',
+          empresasAsignadas: u.app_metadata?.empresas || [],
+          permisos: u.app_metadata?.permisos || [],
+          fechaCreacion: u.created_at,
+          ultimaConexion: u.last_login,
+          activo: !u.blocked
         }));
 
         // Devolver respuesta
