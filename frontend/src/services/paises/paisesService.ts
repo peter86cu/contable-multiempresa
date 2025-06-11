@@ -1,5 +1,5 @@
 import { Pais, ConfiguracionTributaria } from '../../types';
-import { collection, addDoc, getDocs, query, where, doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, doc, getDoc, setDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
 
