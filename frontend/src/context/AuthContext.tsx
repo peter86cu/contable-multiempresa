@@ -54,14 +54,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Obtener permisos y rol desde los metadatos de Auth0
           const permisos = auth0User['https://contaempresa.com/permisos'] || 
                           auth0User.app_metadata?.permisos || 
+                          auth0User['permisos'] ||
                           ['contabilidad:read'];
           
           const rol = auth0User['https://contaempresa.com/rol'] || 
                      auth0User.app_metadata?.rol || 
+                     auth0User['rol'] ||
                      'usuario';
           
           const empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
                                    auth0User.app_metadata?.empresas || 
+                                   auth0User['empresas'] ||
                                    ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
           
           // Crear usuario a partir de datos de Auth0
@@ -85,6 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           };
           
+          console.log('Usuario procesado:', userFromAuth0);
           setUsuario(userFromAuth0);
         } else if (!auth0Loading && !auth0Authenticated) {
           // Si no está autenticado y Auth0 ya terminó de cargar, limpiar usuario
@@ -129,10 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Si tiene admin:all, tiene todos los permisos
     if (usuario.permisos.includes('admin:all')) {
+      console.log(`Permiso ${permiso} concedido por admin:all`);
       return true;
     }
     
-    return usuario.permisos.includes(permiso);
+    const tienePermiso = usuario.permisos.includes(permiso);
+    console.log(`Verificando permiso ${permiso}: ${tienePermiso ? 'Sí' : 'No'}`);
+    return tienePermiso;
   };
 
   return (
