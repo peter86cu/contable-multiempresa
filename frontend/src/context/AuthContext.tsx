@@ -52,18 +52,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           
           // Obtener permisos y rol desde los metadatos de Auth0
+          // Buscar en múltiples ubicaciones posibles
+          console.log('Buscando permisos en:', auth0User);
+          
           const permisos = auth0User['https://contaempresa.com/permisos'] || 
                           auth0User.app_metadata?.permisos || 
+                          auth0User.user_metadata?.permisos ||
                           auth0User['permisos'] ||
                           ['contabilidad:read'];
           
           const rol = auth0User['https://contaempresa.com/rol'] || 
                      auth0User.app_metadata?.rol || 
+                     auth0User.user_metadata?.rol ||
                      auth0User['rol'] ||
                      'usuario';
           
           const empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
                                    auth0User.app_metadata?.empresas || 
+                                   auth0User.user_metadata?.empresas ||
                                    auth0User['empresas'] ||
                                    ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
           
