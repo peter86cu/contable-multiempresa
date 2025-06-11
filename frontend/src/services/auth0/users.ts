@@ -120,7 +120,11 @@ export class Auth0UsersService {
         },
         user_metadata: {
           created_by: 'admin_panel',
-          creation_date: new Date().toISOString()
+          creation_date: new Date().toISOString(),
+          rol: userData.rol,
+          empresas: userData.empresas,
+          permisos: permisos,
+          subdominio: userData.subdominio || userData.empresas[0] || ''
         }
       };
 
@@ -189,6 +193,17 @@ export class Auth0UsersService {
       
       if (Object.keys(appMetadata).length > 0) {
         requestData.app_metadata = appMetadata;
+      }
+      
+      // Metadatos de usuario
+      const userMetadata: any = {};
+      if (userData.rol) userMetadata.rol = userData.rol;
+      if (userData.empresas) userMetadata.empresas = userData.empresas;
+      if (userData.permisos) userMetadata.permisos = userData.permisos;
+      if (userData.subdominio) userMetadata.subdominio = userData.subdominio;
+      
+      if (Object.keys(userMetadata).length > 0) {
+        requestData.user_metadata = userMetadata;
       }
 
       console.log('Enviando datos a Edge Function para actualizar usuario:', userId);

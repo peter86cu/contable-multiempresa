@@ -228,8 +228,8 @@ export const GestionUsuarios: React.FC = () => {
         setAuth0Connected(false);
       }
     } catch (error) {
-      setAuth0Connected(false);
       console.error('Error verificando conexión con Auth0:', error);
+      setAuth0Connected(false);
     } finally {
       setCheckingAuth0(false);
     }

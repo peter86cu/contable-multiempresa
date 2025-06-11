@@ -57,29 +57,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('🔍 Buscando permisos en:', auth0User);
           
           // Buscar permisos en diferentes ubicaciones
-          const permisos = auth0User['https://contaempresa.com/permisos'] || 
-                          auth0User.app_metadata?.permisos || 
-                          auth0User.user_metadata?.permisos ||
-                          auth0User['permisos'] ||
-                          ['contabilidad:read'];
+          let permisos = [];
+          
+          // Primero buscar en user_metadata (tiene prioridad)
+          if (auth0User.user_metadata && auth0User.user_metadata.permisos) {
+            permisos = auth0User.user_metadata.permisos;
+            console.log('🔑 Permisos encontrados en user_metadata:', permisos);
+          } 
+          // Luego buscar en app_metadata
+          else if (auth0User.app_metadata && auth0User.app_metadata.permisos) {
+            permisos = auth0User.app_metadata.permisos;
+            console.log('🔑 Permisos encontrados en app_metadata:', permisos);
+          }
+          // Luego buscar en namespaces personalizados
+          else if (auth0User['https://contaempresa.com/permisos']) {
+            permisos = auth0User['https://contaempresa.com/permisos'];
+            console.log('🔑 Permisos encontrados en namespace personalizado:', permisos);
+          }
+          // Finalmente, buscar directamente en el objeto
+          else if (auth0User['permisos']) {
+            permisos = auth0User['permisos'];
+            console.log('🔑 Permisos encontrados directamente en el objeto:', permisos);
+          }
+          // Si no se encuentra, usar valor por defecto
+          else {
+            permisos = ['contabilidad:read'];
+            console.log('⚠️ No se encontraron permisos, usando valor por defecto:', permisos);
+          }
           
           console.log('🔑 Permisos encontrados:', permisos);
           
           // Buscar rol en diferentes ubicaciones
-          const rol = auth0User['https://contaempresa.com/rol'] || 
-                     auth0User.app_metadata?.rol || 
-                     auth0User.user_metadata?.rol ||
-                     auth0User['rol'] ||
-                     'usuario';
+          let rol;
+          
+          // Primero buscar en user_metadata (tiene prioridad)
+          if (auth0User.user_metadata && auth0User.user_metadata.rol) {
+            rol = auth0User.user_metadata.rol;
+            console.log('👤 Rol encontrado en user_metadata:', rol);
+          }
+          // Luego buscar en app_metadata
+          else if (auth0User.app_metadata && auth0User.app_metadata.rol) {
+            rol = auth0User.app_metadata.rol;
+            console.log('👤 Rol encontrado en app_metadata:', rol);
+          }
+          // Luego buscar en namespaces personalizados
+          else if (auth0User['https://contaempresa.com/rol']) {
+            rol = auth0User['https://contaempresa.com/rol'];
+            console.log('👤 Rol encontrado en namespace personalizado:', rol);
+          }
+          // Finalmente, buscar directamente en el objeto
+          else if (auth0User['rol']) {
+            rol = auth0User['rol'];
+            console.log('👤 Rol encontrado directamente en el objeto:', rol);
+          }
+          // Si no se encuentra, usar valor por defecto
+          else {
+            rol = 'usuario';
+            console.log('⚠️ No se encontró rol, usando valor por defecto:', rol);
+          }
           
           console.log('👤 Rol encontrado:', rol);
           
           // Buscar empresas asignadas en diferentes ubicaciones
-          const empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
-                                   auth0User.app_metadata?.empresas || 
-                                   auth0User.user_metadata?.empresas ||
-                                   auth0User['empresas'] ||
-                                   ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
+          let empresasAsignadas;
+          
+          // Primero buscar en user_metadata (tiene prioridad)
+          if (auth0User.user_metadata && auth0User.user_metadata.empresas) {
+            empresasAsignadas = auth0User.user_metadata.empresas;
+            console.log('🏢 Empresas asignadas encontradas en user_metadata:', empresasAsignadas);
+          }
+          // Luego buscar en app_metadata
+          else if (auth0User.app_metadata && auth0User.app_metadata.empresas) {
+            empresasAsignadas = auth0User.app_metadata.empresas;
+            console.log('🏢 Empresas asignadas encontradas en app_metadata:', empresasAsignadas);
+          }
+          // Luego buscar en namespaces personalizados
+          else if (auth0User['https://contaempresa.com/empresas']) {
+            empresasAsignadas = auth0User['https://contaempresa.com/empresas'];
+            console.log('🏢 Empresas asignadas encontradas en namespace personalizado:', empresasAsignadas);
+          }
+          // Finalmente, buscar directamente en el objeto
+          else if (auth0User['empresas']) {
+            empresasAsignadas = auth0User['empresas'];
+            console.log('🏢 Empresas asignadas encontradas directamente en el objeto:', empresasAsignadas);
+          }
+          // Si no se encuentra, usar valor por defecto
+          else {
+            empresasAsignadas = ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
+            console.log('⚠️ No se encontraron empresas asignadas, usando valor por defecto:', empresasAsignadas);
+          }
           
           console.log('🏢 Empresas asignadas encontradas:', empresasAsignadas);
           
