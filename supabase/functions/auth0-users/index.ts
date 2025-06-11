@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
 
         if (query) {
           params.q = query;
-          params.search_engine = 'v3';
+          params.search_engine = 'v2';
         }
 
         // Construir URL con parámetros
