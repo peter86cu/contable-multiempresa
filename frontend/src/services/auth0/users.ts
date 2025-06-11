@@ -49,13 +49,16 @@ export class Auth0UsersService {
 
       const data = await response.json();
       
+      // Ensure data is always an array
+      const users = Array.isArray(data) ? data : [];
+      
       if (isMockData) {
         console.log('Recibidos datos mock de Auth0');
       } else {
-        console.log(`Recibidos ${data.length} usuarios de Auth0`);
+        console.log(`Recibidos ${users.length} usuarios de Auth0`);
       }
       
-      return data;
+      return users;
     } catch (error) {
       console.error('Error obteniendo usuarios de Auth0:', error);
       
@@ -65,7 +68,8 @@ export class Auth0UsersService {
         return this.getMockUsers();
       }
       
-      throw error;
+      // Always return an empty array instead of throwing error to prevent filter issues
+      return [];
     }
   }
 
