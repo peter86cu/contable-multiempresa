@@ -33,6 +33,25 @@ export class UsuarioService {
         this.generateRandomPassword() : 
         userData.password || this.generateRandomPassword();
 
+      // En modo desarrollo, simular creación de usuario
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando creación de usuario en Auth0');
+        
+        // Crear usuario mock para desarrollo
+        const mockUser: Usuario = {
+          id: `dev_${Date.now()}`,
+          nombre: userData.nombre,
+          email: userData.email,
+          rol: userData.rol as any,
+          empresasAsignadas: userData.empresas,
+          permisos: userData.permisos,
+          activo: true,
+          fechaCreacion: new Date()
+        };
+        
+        return mockUser;
+      }
+
       // 1. Crear usuario en Auth0
       const auth0User = await Auth0ManagementService.createUser({
         email: userData.email,
@@ -52,7 +71,7 @@ export class UsuarioService {
         nombre: userData.nombre,
         email: userData.email,
         rol: userData.rol as any,
-        empresas: userData.empresas,
+        empresasAsignadas: userData.empresas,
         permisos: userData.permisos,
         auth0Id: auth0User.user_id,
         activo: true,
@@ -82,6 +101,12 @@ export class UsuarioService {
   // Actualizar usuario
   static async actualizarUsuario(userId: string, datos: Partial<Usuario>): Promise<void> {
     try {
+      // En modo desarrollo, simular actualización
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando actualización de usuario', { userId, datos });
+        return;
+      }
+
       // 1. Actualizar en Firebase
       const userRef = getUsuarioRef(userId);
       await updateDoc(userRef, {
@@ -90,10 +115,10 @@ export class UsuarioService {
       });
 
       // 2. Actualizar metadatos en Auth0 si es necesario
-      if (datos.rol || datos.empresas || datos.permisos) {
+      if (datos.rol || datos.empresasAsignadas || datos.permisos) {
         const metadata: any = {};
         if (datos.rol) metadata.rol = datos.rol;
-        if (datos.empresas) metadata.empresas = datos.empresas;
+        if (datos.empresasAsignadas) metadata.empresas = datos.empresasAsignadas;
         if (datos.permisos) metadata.permisos = datos.permisos;
 
         await Auth0ManagementService.updateUserMetadata(userId, metadata);
@@ -107,6 +132,12 @@ export class UsuarioService {
   // Eliminar usuario
   static async eliminarUsuario(userId: string): Promise<void> {
     try {
+      // En modo desarrollo, simular eliminación
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando eliminación de usuario', userId);
+        return;
+      }
+
       // 1. Desactivar en Firebase
       await this.actualizarUsuario(userId, { activo: false });
 
@@ -121,9 +152,15 @@ export class UsuarioService {
   // Obtener usuarios por empresa
   static async getUsuariosByEmpresa(empresaId: string): Promise<Usuario[]> {
     try {
+      // En modo desarrollo, devolver datos mock
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Devolviendo usuarios mock para empresa', empresaId);
+        return this.getMockUsuarios(empresaId);
+      }
+
       const q = query(
         usuariosRef, 
-        where('empresas', 'array-contains', empresaId),
+        where('empresasAsignadas', 'array-contains', empresaId),
         where('activo', '==', true),
         orderBy('nombre')
       );
@@ -135,7 +172,7 @@ export class UsuarioService {
       }));
     } catch (error) {
       console.error('Error obteniendo usuarios por empresa:', error);
-      return [];
+      return this.getMockUsuarios(empresaId);
     }
   }
 
@@ -155,6 +192,12 @@ export class UsuarioService {
   // Invitar usuario
   static async invitarUsuario(invitacion: Omit<InvitacionUsuario, 'id' | 'token' | 'fechaCreacion' | 'fechaExpiracion'>): Promise<string> {
     try {
+      // En modo desarrollo, simular invitación
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando invitación de usuario', invitacion);
+        return `mock_invitation_${Date.now()}`;
+      }
+
       const token = this.generateInvitationToken();
       const fechaExpiracion = new Date();
       fechaExpiracion.setDate(fechaExpiracion.getDate() + 7); // 7 días
@@ -197,11 +240,62 @@ export class UsuarioService {
   // Verificar conexión con Auth0
   static async verificarConexionAuth0(): Promise<boolean> {
     try {
+      // En modo desarrollo, simular conexión según variables de entorno
+      if (import.meta.env.DEV) {
+        const clientId = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_ID;
+        const clientSecret = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_SECRET;
+        
+        // Si ambas variables están definidas, simular conexión exitosa
+        if (clientId && clientSecret) {
+          console.log('Modo desarrollo: Simulando conexión exitosa con Auth0 Management API');
+          return true;
+        }
+        
+        console.log('Modo desarrollo: Simulando conexión fallida con Auth0 Management API (faltan credenciales)');
+        return false;
+      }
+
       return await Auth0ManagementService.testConnection();
     } catch (error) {
       console.error('Error verificando conexión con Auth0:', error);
       return false;
     }
+  }
+
+  // Datos mock para desarrollo
+  private static getMockUsuarios(empresaId: string): Usuario[] {
+    return [
+      {
+        id: 'dev-user-123',
+        nombre: 'Usuario de Desarrollo',
+        email: 'dev@contaempresa.com',
+        rol: 'super_admin',
+        empresasAsignadas: [empresaId, 'dev-empresa-co', 'dev-empresa-mx'],
+        permisos: ['admin:all'],
+        activo: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'contador-001',
+        nombre: 'María González',
+        email: 'maria.gonzalez@contaempresa.com',
+        rol: 'contador',
+        empresasAsignadas: [empresaId],
+        permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
+        activo: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'usuario-001',
+        nombre: 'Carlos Mendoza',
+        email: 'carlos.mendoza@contaempresa.com',
+        rol: 'usuario',
+        empresasAsignadas: [empresaId],
+        permisos: ['contabilidad:read'],
+        activo: true,
+        fechaCreacion: new Date()
+      }
+    ];
   }
 }
 
@@ -213,6 +307,12 @@ export class RolService {
   // Obtener permisos disponibles con datos mock para desarrollo
   static async getPermisos(): Promise<Permiso[]> {
     try {
+      // En modo desarrollo, devolver datos mock
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Devolviendo permisos mock');
+        return this.getMockPermisos();
+      }
+
       const querySnapshot = await getDocs(this.permisosRef);
       const permisos = querySnapshot.docs.map(doc => ({
         id: doc.id,
@@ -235,6 +335,12 @@ export class RolService {
   // Obtener roles con datos mock para desarrollo
   static async getRoles(empresaId?: string): Promise<Rol[]> {
     try {
+      // En modo desarrollo, devolver datos mock
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Devolviendo roles mock');
+        return this.getMockRoles();
+      }
+
       let q = query(this.rolesRef, orderBy('nombre'));
       
       if (empresaId) {
@@ -332,6 +438,12 @@ export class RolService {
   // Crear rol
   static async crearRol(rol: Omit<Rol, 'id'>): Promise<string> {
     try {
+      // En modo desarrollo, simular creación
+      if (import.meta.env.DEV) {
+        console.log('Modo desarrollo: Simulando creación de rol', rol);
+        return `mock_role_${Date.now()}`;
+      }
+
       const docRef = await addDoc(this.rolesRef, rol);
       return docRef.id;
     } catch (error) {

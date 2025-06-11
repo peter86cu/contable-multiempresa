@@ -16,12 +16,16 @@ import {
   CheckCircle,
   XCircle,
   ExternalLink,
-  Copy
+  Copy,
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import { Usuario, Rol, Permiso } from '../../types';
 import { UsuarioService, RolService } from '../../services/firebase/usuarios';
 import { useAuth } from '../../context/AuthContext';
 import { useSesion } from '../../context/SesionContext';
+import { NotificationModal } from '../../components/common/NotificationModal';
+import { useModals } from '../../hooks/useModals';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
@@ -39,6 +43,15 @@ export const GestionUsuarios: React.FC = () => {
   const [auth0Connected, setAuth0Connected] = useState<boolean | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showManagementSetup, setShowManagementSetup] = useState(false);
+  const [checkingAuth0, setCheckingAuth0] = useState(false);
+
+  // Hooks para modales
+  const {
+    notificationModal,
+    closeNotification,
+    showError,
+    showSuccess
+  } = useModals();
 
   // Form states
   const [formData, setFormData] = useState({
@@ -77,10 +90,13 @@ export const GestionUsuarios: React.FC = () => {
 
   const verificarConexionAuth0 = async () => {
     try {
+      setCheckingAuth0(true);
       const connected = await UsuarioService.verificarConexionAuth0();
       setAuth0Connected(connected);
     } catch (error) {
       setAuth0Connected(false);
+    } finally {
+      setCheckingAuth0(false);
     }
   };
 
@@ -94,8 +110,11 @@ export const GestionUsuarios: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!auth0Connected) {
-      alert('No se puede crear usuarios sin conexión a Auth0. Verifica la configuración del Management API.');
+    if (!auth0Connected && !import.meta.env.DEV) {
+      showError(
+        'Error de configuración',
+        'No se puede crear usuarios sin conexión a Auth0. Verifica la configuración del Management API.'
+      );
       return;
     }
     
@@ -105,14 +124,14 @@ export const GestionUsuarios: React.FC = () => {
           ...formData,
           empresas: empresaActual ? [empresaActual.id] : []
         });
-        alert('Usuario creado exitosamente');
+        showSuccess('Usuario creado', 'El usuario ha sido creado exitosamente');
       } else if (modalType === 'edit' && selectedUser) {
         await UsuarioService.actualizarUsuario(selectedUser.id, {
           nombre: formData.nombre,
           rol: formData.rol as any,
           permisos: formData.permisos
         });
-        alert('Usuario actualizado exitosamente');
+        showSuccess('Usuario actualizado', 'El usuario ha sido actualizado exitosamente');
       }
 
       await cargarDatos();
@@ -120,7 +139,10 @@ export const GestionUsuarios: React.FC = () => {
       resetForm();
     } catch (error) {
       console.error('Error guardando usuario:', error);
-      alert(`Error al guardar usuario: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      showError(
+        'Error al guardar usuario',
+        error instanceof Error ? error.message : 'Error desconocido al guardar el usuario'
+      );
     }
   };
 
@@ -145,7 +167,7 @@ export const GestionUsuarios: React.FC = () => {
         nombre: user.nombre,
         email: user.email,
         rol: user.rol,
-        empresas: user.empresas,
+        empresas: user.empresasAsignadas || [],
         permisos: user.permisos,
         password: '',
         generatePassword: true
@@ -158,7 +180,8 @@ export const GestionUsuarios: React.FC = () => {
 
   const getRolColor = (rol: string) => {
     const colors = {
-      'admin': 'bg-red-100 text-red-800',
+      'super_admin': 'bg-red-100 text-red-800',
+      'admin_empresa': 'bg-orange-100 text-orange-800',
       'contador': 'bg-blue-100 text-blue-800',
       'usuario': 'bg-green-100 text-green-800'
     };
@@ -172,13 +195,16 @@ export const GestionUsuarios: React.FC = () => {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('Copiado al portapapeles');
+    showSuccess('Copiado', 'Texto copiado al portapapeles');
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">Cargando usuarios...</p>
+        </div>
       </div>
     );
   }
@@ -196,7 +222,7 @@ export const GestionUsuarios: React.FC = () => {
         <div className="mt-4 sm:mt-0 flex space-x-3">
           <button
             onClick={() => openModal('invite')}
-            disabled={!auth0Connected}
+            disabled={!auth0Connected && !import.meta.env.DEV}
             className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Mail className="h-4 w-4" />
@@ -204,7 +230,7 @@ export const GestionUsuarios: React.FC = () => {
           </button>
           <button
             onClick={() => openModal('create')}
-            disabled={!auth0Connected}
+            disabled={!auth0Connected && !import.meta.env.DEV}
             className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
@@ -215,13 +241,13 @@ export const GestionUsuarios: React.FC = () => {
 
       {/* Estado de conexión Auth0 */}
       <div className={`p-4 rounded-lg border ${
-        auth0Connected === null ? 'bg-yellow-50 border-yellow-200' :
+        checkingAuth0 ? 'bg-yellow-50 border-yellow-200' :
         auth0Connected ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
       }`}>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            {auth0Connected === null ? (
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
+            {checkingAuth0 ? (
+              <Loader2 className="h-5 w-5 text-yellow-600 animate-spin" />
             ) : auth0Connected ? (
               <CheckCircle className="h-5 w-5 text-green-600" />
             ) : (
@@ -229,20 +255,22 @@ export const GestionUsuarios: React.FC = () => {
             )}
             <div>
               <h3 className={`text-sm font-medium ${
-                auth0Connected === null ? 'text-yellow-800' :
+                checkingAuth0 ? 'text-yellow-800' :
                 auth0Connected ? 'text-green-800' : 'text-red-800'
               }`}>
-                {auth0Connected === null ? 'Verificando conexión Auth0...' :
+                {checkingAuth0 ? 'Verificando conexión Auth0...' :
                  auth0Connected ? 'Auth0 Management API conectado' : 'Error: Auth0 Management API no configurado'}
               </h3>
-              {auth0Connected === false && (
+              {!auth0Connected && !checkingAuth0 && (
                 <div className="text-sm text-red-700 mt-1">
                   <p>Para gestionar usuarios necesitas configurar el Auth0 Management API.</p>
                   <div className="flex items-center space-x-2 mt-2">
                     <button 
                       onClick={verificarConexionAuth0}
-                      className="text-red-800 underline hover:no-underline"
+                      disabled={checkingAuth0}
+                      className="text-red-800 underline hover:no-underline flex items-center gap-1"
                     >
+                      {checkingAuth0 ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
                       Reintentar
                     </button>
                     <span>•</span>
@@ -250,17 +278,27 @@ export const GestionUsuarios: React.FC = () => {
                       onClick={() => setShowManagementSetup(!showManagementSetup)}
                       className="text-red-800 underline hover:no-underline"
                     >
-                      Ver instrucciones
+                      {showManagementSetup ? 'Ocultar instrucciones' : 'Ver instrucciones'}
                     </button>
                   </div>
                 </div>
               )}
+              {import.meta.env.DEV && !auth0Connected && (
+                <p className="text-sm text-yellow-600 mt-1">
+                  Modo desarrollo: Puedes crear usuarios de prueba aunque Auth0 Management API no esté configurado.
+                </p>
+              )}
             </div>
           </div>
+          {auth0Connected && (
+            <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full">
+              Configurado correctamente
+            </span>
+          )}
         </div>
 
         {/* Instrucciones de configuración */}
-        {showManagementSetup && auth0Connected === false && (
+        {showManagementSetup && !auth0Connected && (
           <div className="mt-4 p-4 bg-red-100 rounded border border-red-200">
             <h4 className="text-sm font-medium text-red-800 mb-3">
               📋 Configuración del Auth0 Management API
@@ -343,7 +381,7 @@ export const GestionUsuarios: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Administradores</p>
               <p className="text-lg font-semibold text-gray-900">
-                {usuarios.filter(u => u.rol === 'admin').length}
+                {usuarios.filter(u => u.rol === 'admin_empresa' || u.rol === 'super_admin').length}
               </p>
             </div>
           </div>
@@ -390,7 +428,8 @@ export const GestionUsuarios: React.FC = () => {
             className="px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="">Todos los roles</option>
-            <option value="admin">Administrador</option>
+            <option value="super_admin">Super Admin</option>
+            <option value="admin_empresa">Administrador</option>
             <option value="contador">Contador</option>
             <option value="usuario">Usuario</option>
           </select>
@@ -452,7 +491,8 @@ export const GestionUsuarios: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRolColor(usuario.rol)}`}>
-                      {usuario.rol === 'admin' ? 'Administrador' : 
+                      {usuario.rol === 'super_admin' ? 'Super Admin' : 
+                       usuario.rol === 'admin_empresa' ? 'Administrador' : 
                        usuario.rol === 'contador' ? 'Contador' : 'Usuario'}
                     </span>
                   </td>
@@ -558,7 +598,10 @@ export const GestionUsuarios: React.FC = () => {
                 >
                   <option value="usuario">Usuario</option>
                   <option value="contador">Contador</option>
-                  <option value="admin">Administrador</option>
+                  <option value="admin_empresa">Administrador</option>
+                  {usuarioActual?.rol === 'super_admin' && (
+                    <option value="super_admin">Super Admin</option>
+                  )}
                 </select>
               </div>
 
@@ -630,7 +673,7 @@ export const GestionUsuarios: React.FC = () => {
               <div className="flex space-x-3 pt-4">
                 <button
                   type="submit"
-                  disabled={!auth0Connected}
+                  disabled={(!auth0Connected && !import.meta.env.DEV)}
                   className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {modalType === 'create' ? 'Crear Usuario' : 
@@ -648,6 +691,16 @@ export const GestionUsuarios: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Modal de notificación */}
+      <NotificationModal
+        isOpen={notificationModal.isOpen}
+        onClose={closeNotification}
+        title={notificationModal.title}
+        message={notificationModal.message}
+        type={notificationModal.type}
+        autoClose={notificationModal.autoClose}
+      />
     </div>
   );
 };

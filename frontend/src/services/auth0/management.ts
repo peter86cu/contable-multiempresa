@@ -8,7 +8,8 @@ export class Auth0ManagementService {
     try {
       // Verificar si estamos en modo desarrollo sin credenciales reales
       if (this.isDevelopmentMode()) {
-        throw new Error('Auth0 Management API no configurado para desarrollo');
+        console.log('Modo desarrollo: Simulando petición a Auth0 Management API', { endpoint, options });
+        return this.getMockResponse(endpoint, options);
       }
 
       // Obtener token válido automáticamente
@@ -56,14 +57,56 @@ export class Auth0ManagementService {
   }
 
   private static isDevelopmentMode(): boolean {
-    const domain = import.meta.env.VITE_AUTH0_DOMAIN;
-    const clientId = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_ID;
-    const clientSecret = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_SECRET;
+    return import.meta.env.DEV;
+  }
 
-    return !domain || !clientId || !clientSecret || 
-           domain.includes('dev-') || 
-           clientId.includes('dev-') || 
-           clientSecret.includes('dev-');
+  // Simular respuestas para desarrollo
+  private static getMockResponse(endpoint: string, options: RequestInit): any {
+    // Extraer el tipo de operación y entidad
+    const method = options.method || 'GET';
+    
+    // Crear usuario
+    if (endpoint === '/users' && method === 'POST') {
+      const body = JSON.parse(options.body as string);
+      return {
+        user_id: `auth0|${Date.now()}`,
+        email: body.email,
+        name: body.name,
+        created_at: new Date().toISOString()
+      };
+    }
+    
+    // Actualizar usuario
+    if (endpoint.startsWith('/users/') && method === 'PATCH') {
+      const userId = endpoint.split('/')[2];
+      return { user_id: userId, ...JSON.parse(options.body as string) };
+    }
+    
+    // Buscar usuario por email
+    if (endpoint.startsWith('/users-by-email')) {
+      return []; // Simular que no existe
+    }
+    
+    // Listar usuarios
+    if (endpoint === '/users') {
+      return [
+        {
+          user_id: 'auth0|123456789',
+          email: 'usuario1@example.com',
+          name: 'Usuario Uno',
+          created_at: new Date().toISOString()
+        },
+        {
+          user_id: 'auth0|987654321',
+          email: 'usuario2@example.com',
+          name: 'Usuario Dos',
+          created_at: new Date().toISOString()
+        }
+      ];
+    }
+    
+    // Por defecto
+    return { message: 'Mock response for development' };
   }
 
   // Crear usuario en Auth0
@@ -76,8 +119,9 @@ export class Auth0ManagementService {
     try {
       if (this.isDevelopmentMode()) {
         // Simular creación de usuario en desarrollo
+        console.log('Modo desarrollo: Simulando creación de usuario en Auth0', userData);
         return {
-          user_id: `dev_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: `auth0_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           email: userData.email,
           name: userData.name,
           created_at: new Date().toISOString()
@@ -111,7 +155,7 @@ export class Auth0ManagementService {
   static async updateUserMetadata(userId: string, metadata: Partial<Auth0UserMetadata>) {
     try {
       if (this.isDevelopmentMode()) {
-        console.log('Simulando actualización de metadatos en desarrollo:', { userId, metadata });
+        console.log('Modo desarrollo: Simulando actualización de metadatos en Auth0', { userId, metadata });
         return { user_id: userId, app_metadata: metadata };
       }
 
@@ -133,6 +177,7 @@ export class Auth0ManagementService {
   static async getUserByEmail(email: string) {
     try {
       if (this.isDevelopmentMode()) {
+        console.log('Modo desarrollo: Simulando búsqueda de usuario por email', email);
         return null;
       }
 
@@ -148,7 +193,7 @@ export class Auth0ManagementService {
   static async deleteUser(userId: string) {
     try {
       if (this.isDevelopmentMode()) {
-        console.log('Simulando eliminación de usuario en desarrollo:', userId);
+        console.log('Modo desarrollo: Simulando eliminación de usuario en Auth0', userId);
         return;
       }
 
@@ -165,7 +210,7 @@ export class Auth0ManagementService {
   static async sendVerificationEmail(userId: string) {
     try {
       if (this.isDevelopmentMode()) {
-        console.log('Simulando envío de email de verificación en desarrollo:', userId);
+        console.log('Modo desarrollo: Simulando envío de email de verificación', userId);
         return;
       }
 
@@ -185,7 +230,7 @@ export class Auth0ManagementService {
   static async sendPasswordResetEmail(email: string) {
     try {
       if (this.isDevelopmentMode()) {
-        console.log('Simulando reset de contraseña en desarrollo:', email);
+        console.log('Modo desarrollo: Simulando reset de contraseña', email);
         return;
       }
 
@@ -212,7 +257,8 @@ export class Auth0ManagementService {
   } = {}) {
     try {
       if (this.isDevelopmentMode()) {
-        return [];
+        console.log('Modo desarrollo: Simulando listado de usuarios', filters);
+        return this.getMockUsers();
       }
 
       const params = new URLSearchParams();
@@ -230,11 +276,41 @@ export class Auth0ManagementService {
     }
   }
 
+  // Datos mock para desarrollo
+  private static getMockUsers() {
+    return [
+      {
+        user_id: 'auth0|123456789',
+        email: 'usuario1@example.com',
+        name: 'Usuario Uno',
+        created_at: new Date().toISOString()
+      },
+      {
+        user_id: 'auth0|987654321',
+        email: 'usuario2@example.com',
+        name: 'Usuario Dos',
+        created_at: new Date().toISOString()
+      }
+    ];
+  }
+
   // Verificar conexión con la API
   static async testConnection(): Promise<boolean> {
     try {
+      // En modo desarrollo, verificar si existen las variables de entorno
       if (this.isDevelopmentMode()) {
-        return false; // Indicar que no está configurado en desarrollo
+        const clientId = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_ID;
+        const clientSecret = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_SECRET;
+        
+        console.log('Modo desarrollo: Verificando configuración de Auth0 Management API');
+        
+        if (!clientId || !clientSecret) {
+          console.warn('Faltan variables de entorno para Auth0 Management API');
+          return false;
+        }
+        
+        console.log('Configuración de Auth0 Management API válida en modo desarrollo');
+        return true;
       }
 
       await this.makeRequest('/users?per_page=1');

@@ -15,6 +15,12 @@ export class Auth0TokenService {
 
   // Obtener token válido (usa caché si está disponible)
   static async getValidToken(): Promise<string> {
+    // Verificar si estamos en modo desarrollo
+    if (import.meta.env.DEV) {
+      console.log('Modo desarrollo: Devolviendo token mock para Auth0 Management API');
+      return 'mock_token_for_development';
+    }
+
     // Verificar si tenemos un token en caché válido
     if (this.cachedToken && this.isTokenValid(this.cachedToken)) {
       return this.cachedToken.token;
