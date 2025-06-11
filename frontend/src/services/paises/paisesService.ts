@@ -328,6 +328,24 @@ export class PaisesService {
         }
       ];
       
+      // Intentar guardar los países mock en Firebase si estamos autenticados
+      if (isAuth) {
+        console.log('🔄 Guardando países mock en Firebase...');
+        const paisesRef = collection(db, 'paises');
+        const batch = writeBatch(db);
+        
+        for (const pais of paisesMock) {
+          const paisRef = doc(paisesRef, pais.id);
+          batch.set(paisRef, {
+            ...pais,
+            fechaCreacion: new Date()
+          });
+        }
+        
+        await batch.commit();
+        console.log('✅ Países mock guardados en Firebase');
+      }
+      
       return paisesMock;
     } catch (error) {
       console.error('Error obteniendo países:', error);
@@ -365,6 +383,17 @@ export class PaisesService {
       
       if (pais) {
         console.log(`✅ País ${paisId} encontrado en datos mock`);
+        
+        // Intentar guardar el país en Firebase si estamos autenticados
+        if (isAuth) {
+          console.log(`🔄 Guardando país ${paisId} en Firebase...`);
+          const paisRef = doc(db, 'paises', paisId);
+          await setDoc(paisRef, {
+            ...pais,
+            fechaCreacion: new Date()
+          });
+          console.log(`✅ País ${paisId} guardado en Firebase`);
+        }
       } else {
         console.log(`❌ País ${paisId} no encontrado`);
       }

@@ -1,5 +1,6 @@
-import { collection, addDoc, getDocs, writeBatch, doc, query, where } from 'firebase/firestore';
+import { collection, addDoc, getDocs, writeBatch, doc, query, where, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
+import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { 
   TipoDocumentoIdentidad, 
   TipoDocumentoFactura,
@@ -34,6 +35,12 @@ export class SeedDataNomencladoresService {
   // Insertar todos los nomencladores para un país
   static async insertarNomencladores(paisId: string): Promise<void> {
     try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
       console.log(`🔄 Insertando nomencladores para país: ${paisId}`);
       
       // Verificar si ya existen
@@ -157,6 +164,12 @@ export class SeedDataNomencladoresService {
   // Insertar nomencladores para todos los países
   static async insertarNomencladoresTodosPaises(): Promise<void> {
     try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
       console.log('🌎 Insertando nomencladores para todos los países');
       
       const paises = ['peru', 'colombia', 'mexico', 'argentina', 'chile', 'ecuador', 'bolivia', 'uruguay', 'paraguay', 'venezuela'];
@@ -258,6 +271,12 @@ export class SeedDataNomencladoresService {
     simboloMoneda: string;
   }): Promise<boolean> {
     try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
       console.log(`🌎 Creando nuevo país: ${paisData.nombre} (${paisData.id})`);
       
       // Verificar si ya existe el país
@@ -266,6 +285,29 @@ export class SeedDataNomencladoresService {
         console.log(`⚠️ Ya existen nomencladores para el país ${paisData.id}`);
         return false;
       }
+      
+      // Crear país en la colección de países
+      const paisesRef = collection(db, 'paises');
+      const paisRef = doc(paisesRef, paisData.id);
+      
+      await setDoc(paisRef, {
+        ...paisData,
+        activo: true,
+        fechaCreacion: new Date(),
+        separadorDecimal: paisData.id === 'peru' ? '.' : ',',
+        separadorMiles: paisData.id === 'peru' ? ',' : '.',
+        formatoFecha: 'DD/MM/YYYY',
+        configuracionTributaria: {
+          tiposDocumento: [],
+          impuestos: [],
+          regimenesTributarios: [],
+          formatoNumeroIdentificacion: '',
+          longitudNumeroIdentificacion: 0
+        },
+        planContableBase: `pcg_${paisData.id}`
+      });
+      
+      console.log(`✅ País ${paisData.nombre} creado en la colección de países`);
       
       // Crear nomencladores básicos para el país
       await this.insertarNomencladores(paisData.id);

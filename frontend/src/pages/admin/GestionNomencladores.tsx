@@ -33,6 +33,7 @@ import { NomencladorCard } from '../../components/admin/NomencladorCard';
 import { NomencladoresStats } from '../../components/admin/NomencladoresStats';
 import { PaisesNomencladores } from '../../components/admin/PaisesNomencladores';
 import { NomencladorModal } from '../../components/admin/NomencladorModal';
+import { SeedDataNomencladoresService } from '../../services/firebase/seedDataNomencladores';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -58,6 +59,7 @@ function GestionNomencladores() {
   const [selectedTipo, setSelectedTipo] = useState<string>('');
   const [selectedPais, setSelectedPais] = useState<string | null>(paisActual?.id || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMockData, setIsLoadingMockData] = useState(false);
   
   // Estados para modal de nuevo país
   const [showPaisModal, setShowPaisModal] = useState(false);
@@ -107,6 +109,31 @@ function GestionNomencladores() {
       );
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  // Cargar datos mock en Firebase
+  const handleCargarDatosMock = async () => {
+    try {
+      setIsLoadingMockData(true);
+      
+      // Primero, intentar insertar nomencladores para todos los países
+      await SeedDataNomencladoresService.insertarNomencladoresTodosPaises();
+      
+      // Recargar datos después de insertar
+      await recargarDatos();
+      
+      showSuccess(
+        'Datos cargados exitosamente',
+        'Los nomencladores han sido cargados en la base de datos'
+      );
+    } catch (error) {
+      showError(
+        'Error al cargar datos',
+        error instanceof Error ? error.message : 'Error desconocido'
+      );
+    } finally {
+      setIsLoadingMockData(false);
     }
   };
 
@@ -182,14 +209,20 @@ function GestionNomencladores() {
     
     setSavingPais(true);
     try {
-      // Aquí iría la lógica para crear el país en Firebase
-      // Por ahora simulamos una operación exitosa
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Crear país con nomencladores
+      const resultado = await SeedDataNomencladoresService.crearPaisConNomencladores(paisFormData);
       
-      showSuccess(
-        'País creado exitosamente',
-        `El país ${paisFormData.nombre} ha sido creado con sus nomencladores básicos`
-      );
+      if (resultado) {
+        showSuccess(
+          'País creado exitosamente',
+          `El país ${paisFormData.nombre} ha sido creado con sus nomencladores básicos`
+        );
+      } else {
+        showError(
+          'No se pudo crear el país',
+          'El país ya existe o hubo un problema al crearlo'
+        );
+      }
       
       // Limpiar formulario y cerrar modal
       setPaisFormData({
@@ -389,6 +422,30 @@ function GestionNomencladores() {
                 </div>
               </div>
             </div>
+
+            {/* Botón para cargar datos mock */}
+            <div className="mt-4">
+              <button
+                onClick={handleCargarDatosMock}
+                disabled={isLoadingMockData}
+                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isLoadingMockData ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Cargando datos...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    <span>Cargar Datos en Firebase</span>
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-gray-500 mt-1 text-center">
+                Carga todos los nomencladores en la base de datos
+              </p>
+            </div>
           </div>
           
           {/* Lista de nomencladores */}
@@ -452,6 +509,25 @@ function GestionNomencladores() {
                         ? 'Intente con otros criterios de búsqueda'
                         : 'No hay nomencladores configurados para este país'}
                     </p>
+                    {!searchTerm && !selectedTipo && (
+                      <button
+                        onClick={handleCargarDatosMock}
+                        disabled={isLoadingMockData}
+                        className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 mx-auto"
+                      >
+                        {isLoadingMockData ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Cargando datos...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Database className="h-4 w-4" />
+                            <span>Cargar Datos en Firebase</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">

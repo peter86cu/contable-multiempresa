@@ -10,6 +10,7 @@ import {
 } from '../types/nomencladores';
 import { NomencladoresService } from '../services/firebase/nomencladores';
 import { SeedDataNomencladoresService } from '../services/firebase/seedDataNomencladores';
+import { FirebaseAuthService } from '../config/firebaseAuth';
 
 export const useNomencladoresAdmin = (paisId: string | undefined) => {
   const [tiposDocumentoIdentidad, setTiposDocumentoIdentidad] = useState<TipoDocumentoIdentidad[]>([]);
@@ -38,8 +39,15 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
       
       console.log('🔄 Cargando nomencladores para país:', paisId);
       
+      // Asegurar autenticación
+      await FirebaseAuthService.ensureAuthenticated();
+      
       // Inicializar nomencladores si no existen
-      await NomencladoresService.inicializarNomencladores(paisId);
+      const existenNomencladores = await SeedDataNomencladoresService.existenNomencladores(paisId);
+      if (!existenNomencladores) {
+        console.log(`⚠️ No existen nomencladores para el país ${paisId}, inicializando...`);
+        await SeedDataNomencladoresService.insertarNomencladores(paisId);
+      }
       
       // Cargar todos los nomencladores en paralelo
       const [
