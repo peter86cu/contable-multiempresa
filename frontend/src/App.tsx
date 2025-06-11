@@ -83,18 +83,17 @@ const AppRoutes: React.FC = () => {
     });
   }, []);
 
+  // Redirigir a login si no está autenticado
+  if (!isLoading && !isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando aplicación...</p>
-          <p className="mt-2 text-xs text-green-600 font-medium">
-            🔓 Modo desarrollo - Autenticación deshabilitada
-          </p>
-          <p className="mt-1 text-xs text-blue-600">
-            🔥 Configurando Firebase...
-          </p>
         </div>
       </div>
     );
@@ -114,29 +113,6 @@ const AppRoutes: React.FC = () => {
             className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           >
             Recargar página
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // En modo desarrollo, siempre mostrar como autenticado
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-4">
-            <strong className="font-bold">Modo Desarrollo: </strong>
-            <span className="block sm:inline">Autenticación deshabilitada</span>
-          </div>
-          <p className="text-gray-600 mb-4">
-            La autenticación está deshabilitada para pruebas locales.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Continuar
           </button>
         </div>
       </div>
@@ -187,7 +163,10 @@ function App() {
   return (
     <AuthProvider>
       <Router>
-        <AppRoutes />
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={<AppRoutes />} />
+        </Routes>
       </Router>
     </AuthProvider>
   );
