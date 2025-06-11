@@ -6,6 +6,8 @@ import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { FirebaseAuthService } from './config/firebaseAuth';
+import { Auth0Provider } from '@auth0/auth0-react';
+import { getAuthConfigInfo } from './config/auth0';
 
 // Lazy load components to improve performance
 const PlanCuentas = React.lazy(() =>
@@ -83,17 +85,18 @@ const AppRoutes: React.FC = () => {
     });
   }, []);
 
-  // Redirigir a login si no está autenticado
-  if (!isLoading && !isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando aplicación...</p>
+          <p className="mt-2 text-xs text-green-600 font-medium">
+            🔓 Modo desarrollo - Autenticación deshabilitada
+          </p>
+          <p className="mt-1 text-xs text-blue-600">
+            🔥 Configurando Firebase...
+          </p>
         </div>
       </div>
     );
@@ -117,6 +120,11 @@ const AppRoutes: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Redirigir a login si no está autenticado
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return (
@@ -160,15 +168,25 @@ const AppRoutes: React.FC = () => {
 };
 
 function App() {
+  const authConfig = getAuthConfigInfo();
+  
   return (
-    <AuthProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/*" element={<AppRoutes />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+    <Auth0Provider
+      domain={authConfig.domain}
+      clientId={authConfig.clientId}
+      authorizationParams={authConfig.authorizationParams}
+      cacheLocation={authConfig.cacheLocation}
+      useRefreshTokens={authConfig.useRefreshTokens}
+    >
+      <AuthProvider>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/*" element={<AppRoutes />} />
+          </Routes>
+        </Router>
+      </AuthProvider>
+    </Auth0Provider>
   );
 }
 
