@@ -29,7 +29,8 @@ import {
   Key,
   Save,
   X,
-  Shield
+  Shield,
+  EyeOff
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useSesion } from '@/context/SesionContext';
@@ -163,8 +164,21 @@ export const GestionUsuarios: React.FC = () => {
       
       if (connected) {
         // Intentar cargar usuarios como prueba de conexión
-        const usuarios = await Auth0UsersService.getUsers({ perPage: 1 });
-        setAuth0Connected(usuarios && Array.isArray(usuarios));
+        try {
+          const usuarios = await Auth0UsersService.getUsers({ perPage: 1 });
+          setAuth0Connected(usuarios && Array.isArray(usuarios));
+        } catch (error) {
+          console.error('Error en prueba de conexión Auth0:', error);
+          setAuth0Connected(false);
+          
+          // Si el error menciona permisos, mostrar información específica
+          if (error instanceof Error && error.message.includes('Permisos insuficientes')) {
+            showError(
+              'Permisos insuficientes en Auth0',
+              'Tu aplicación Auth0 Management API necesita permisos adicionales. Revisa las instrucciones de configuración.'
+            );
+          }
+        }
       }
     } catch (error) {
       setAuth0Connected(false);
@@ -437,8 +451,23 @@ export const GestionUsuarios: React.FC = () => {
               </div>
               
               <div>
-                <p className="font-medium">2. Configurar permisos:</p>
-                <p className="ml-4">Selecciona estos scopes: <code className="bg-red-200 px-2 py-1 rounded">read:users, create:users, update:users, delete:users</code></p>
+                <p className="font-medium">2. Configurar permisos (CRÍTICO):</p>
+                <p className="ml-4">Selecciona estos scopes obligatorios:</p>
+                <div className="ml-4 mt-2 p-2 bg-red-200 rounded font-mono text-xs">
+                  <div className="space-y-1">
+                    <div>✓ <code>read:users</code> - Leer información básica de usuarios</div>
+                    <div>✓ <code>create:users</code> - Crear nuevos usuarios</div>
+                    <div>✓ <code>update:users</code> - Actualizar usuarios existentes</div>
+                    <div>✓ <code>delete:users</code> - Eliminar usuarios</div>
+                    <div className="text-red-800 font-bold">✓ <code>read:user_metadata</code> - Leer metadatos de usuario</div>
+                    <div className="text-red-800 font-bold">✓ <code>read:app_metadata</code> - Leer metadatos de aplicación</div>
+                    <div className="text-red-800 font-bold">✓ <code>update:user_metadata</code> - Actualizar metadatos de usuario</div>
+                    <div className="text-red-800 font-bold">✓ <code>update:app_metadata</code> - Actualizar metadatos de aplicación</div>
+                  </div>
+                </div>
+                <p className="ml-4 mt-2 text-xs text-red-800 font-medium">
+                  ⚠️ Sin estos permisos de metadatos, la aplicación no funcionará correctamente.
+                </p>
               </div>
               
               <div>
