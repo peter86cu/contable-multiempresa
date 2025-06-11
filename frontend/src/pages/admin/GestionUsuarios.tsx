@@ -31,18 +31,18 @@ import {
   X,
   Shield
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useSesion } from '@/context/SesionContext';
-import { NotificationModal } from '@/components/common/NotificationModal';
-import { useModals } from '@/hooks/useModals';
-import { Auth0UsersService } from '@/services/auth0/users';
-import { RolesPermisosList } from '@/components/admin/RolesPermisosList';
+import { useAuth } from '../../context/AuthContext';
+import { useSesion } from '../../context/SesionContext';
+import { NotificationModal } from '../../components/common/NotificationModal';
+import { useModals } from '../../hooks/useModals';
+import { Auth0UsersService } from '../../services/auth0/users';
+import { RolesPermisosList } from '../../components/admin/RolesPermisosList';
 import { 
   ROLES, 
   PERMISOS, 
   PERMISOS_POR_ROL, 
   getPermisosPorRol 
-} from '@/services/auth0/roles';
+} from '../../services/auth0/roles';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
