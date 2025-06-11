@@ -51,27 +51,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (auth0Authenticated && auth0User) {
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           
-          // Obtener permisos y rol desde los metadatos de Auth0
-          // Buscar en múltiples ubicaciones posibles
-          console.log('Buscando permisos en:', auth0User);
+          // DEPURACIÓN: Mostrar todo el objeto de usuario para ver dónde están los permisos
+          console.log('🔍 Objeto completo del usuario Auth0:', JSON.stringify(auth0User, null, 2));
           
+          // Buscar permisos en todas las ubicaciones posibles
+          console.log('🔍 Buscando permisos en:', auth0User);
+          
+          // Extraer permisos de todas las ubicaciones posibles
           const permisos = auth0User['https://contaempresa.com/permisos'] || 
                           auth0User.app_metadata?.permisos || 
                           auth0User.user_metadata?.permisos ||
                           auth0User['permisos'] ||
                           ['contabilidad:read'];
           
+          console.log('🔑 Permisos encontrados:', permisos);
+          
+          // Extraer rol de todas las ubicaciones posibles
           const rol = auth0User['https://contaempresa.com/rol'] || 
                      auth0User.app_metadata?.rol || 
                      auth0User.user_metadata?.rol ||
                      auth0User['rol'] ||
                      'usuario';
           
+          console.log('👤 Rol encontrado:', rol);
+          
+          // Extraer empresas asignadas de todas las ubicaciones posibles
           const empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
                                    auth0User.app_metadata?.empresas || 
                                    auth0User.user_metadata?.empresas ||
                                    auth0User['empresas'] ||
                                    ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
+          
+          console.log('🏢 Empresas asignadas encontradas:', empresasAsignadas);
           
           // Crear usuario a partir de datos de Auth0
           const userFromAuth0: Usuario = {
@@ -94,7 +105,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           };
           
-          console.log('Usuario procesado:', userFromAuth0);
+          console.log('👤 Usuario procesado:', userFromAuth0);
+          console.log('🔑 Permisos del usuario:', userFromAuth0.permisos);
+          
+          // FORZAR PERMISOS PARA DEPURACIÓN
+          if (auth0User.user_metadata?.permisos?.includes('admin:all')) {
+            console.log('⚠️ FORZANDO PERMISOS ADMIN:ALL DESDE USER_METADATA');
+            userFromAuth0.permisos = ['admin:all', ...userFromAuth0.permisos];
+          }
+          
           setUsuario(userFromAuth0);
         } else if (!auth0Loading && !auth0Authenticated) {
           // Si no está autenticado y Auth0 ya terminó de cargar, limpiar usuario
@@ -135,16 +154,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Método para verificar permisos
   const hasPermission = (permiso: string): boolean => {
-    if (!usuario) return false;
+    if (!usuario) {
+      console.log(`❌ Sin usuario autenticado, permiso ${permiso} denegado`);
+      return false;
+    }
     
     // Si tiene admin:all, tiene todos los permisos
     if (usuario.permisos.includes('admin:all')) {
-      console.log(`Permiso ${permiso} concedido por admin:all`);
+      console.log(`✅ Permiso ${permiso} concedido por admin:all`);
       return true;
     }
     
     const tienePermiso = usuario.permisos.includes(permiso);
-    console.log(`Verificando permiso ${permiso}: ${tienePermiso ? 'Sí' : 'No'}`);
+    console.log(`🔍 Verificando permiso ${permiso}: ${tienePermiso ? '✅ Sí' : '❌ No'}`);
+    console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);
     return tienePermiso;
   };
 

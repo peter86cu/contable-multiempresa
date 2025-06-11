@@ -32,11 +32,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // Verificar si el usuario tiene el permiso admin:all
+  // DEPURACIÓN: Mostrar información detallada sobre el usuario y sus permisos
+  console.log("🔍 SIDEBAR - Usuario:", usuario);
+  console.log("🔑 SIDEBAR - Permisos del usuario:", usuario?.permisos);
+  
+  // Verificar explícitamente si el usuario tiene el permiso admin:all
   const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
-  console.log("Usuario:", usuario);
-  console.log("Usuario tiene admin:all:", hasAdminAll);
-  console.log("Permisos del usuario:", usuario?.permisos);
+  console.log("🔑 SIDEBAR - Usuario tiene admin:all:", hasAdminAll);
 
   const menuItems = [
     {
@@ -196,14 +198,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {menuItems.map((item) => {
+            // DEPURACIÓN: Mostrar información sobre cada ítem del menú
+            console.log(`🔍 SIDEBAR - Evaluando ítem: ${item.title}, permiso: ${item.permiso}`);
+            
             // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los menús
             // Si no, verificar el permiso específico
             const tienePermiso = hasAdminAll || 
                                item.permiso === null || 
                                (item.permiso && hasPermission(item.permiso));
             
+            console.log(`🔑 SIDEBAR - Ítem ${item.title} - Tiene permiso: ${tienePermiso}`);
+            
             // Si no tiene permiso, no mostrar el ítem
             if (!tienePermiso) {
+              console.log(`❌ SIDEBAR - Ítem ${item.title} - No tiene permiso, ocultando`);
               return null;
             }
             
@@ -229,14 +237,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {expandedMenu === item.title && (
                       <div className="ml-4 mt-2 space-y-1">
                         {item.submenu.map((subItem) => {
+                          // DEPURACIÓN: Mostrar información sobre cada subítem
+                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
+                          
                           // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los submenús
                           // Si no, verificar el permiso específico
                           const tienePermisoSub = hasAdminAll || 
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
                           
+                          console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub}`);
+                          
                           // Si no tiene permiso, no mostrar el subítem
                           if (!tienePermisoSub) {
+                            console.log(`❌ SIDEBAR - Subítem ${subItem.title} - No tiene permiso, ocultando`);
                             return null;
                           }
                           
