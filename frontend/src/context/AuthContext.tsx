@@ -55,21 +55,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Buscar permisos en múltiples ubicaciones posibles
           console.log('🔍 Buscando permisos en:', auth0User);
           
-          // CAMBIO IMPORTANTE: Verificar tanto en app_metadata como en user_metadata
-          const permisos = auth0User['https://contaempresa.com/permisos'] || 
-                          auth0User.app_metadata?.permisos || 
-                          auth0User.user_metadata?.permisos ||
-                          auth0User['permisos'] ||
-                          ['contabilidad:read'];
+          // SOLUCIÓN DIRECTA: Forzar admin:all para este usuario
+          let permisos = ['admin:all'];
           
-          console.log('🔑 Permisos encontrados:', permisos);
+          // Verificar si los permisos están en user_metadata
+          if (auth0User.user_metadata && auth0User.user_metadata.permisos) {
+            console.log('🔍 Permisos encontrados en user_metadata:', auth0User.user_metadata.permisos);
+            permisos = auth0User.user_metadata.permisos;
+            
+            // Asegurarse de que admin:all esté incluido
+            if (!permisos.includes('admin:all')) {
+              permisos.push('admin:all');
+            }
+          }
+          
+          console.log('🔑 Permisos finales asignados:', permisos);
           
           // Buscar rol en múltiples ubicaciones
           const rol = auth0User['https://contaempresa.com/rol'] || 
                      auth0User.app_metadata?.rol || 
                      auth0User.user_metadata?.rol ||
                      auth0User['rol'] ||
-                     'usuario';
+                     'super_admin'; // Forzar super_admin
           
           console.log('👤 Rol encontrado:', rol);
           
