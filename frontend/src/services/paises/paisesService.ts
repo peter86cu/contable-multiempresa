@@ -330,20 +330,25 @@ export class PaisesService {
       
       // Intentar guardar los países mock en Firebase si estamos autenticados
       if (isAuth) {
-        console.log('🔄 Guardando países mock en Firebase...');
-        const paisesRef = collection(db, 'paises');
-        const batch = writeBatch(db);
-        
-        for (const pais of paisesMock) {
-          const paisRef = doc(paisesRef, pais.id);
-          batch.set(paisRef, {
-            ...pais,
-            fechaCreacion: new Date()
-          });
+        try {
+          console.log('🔄 Intentando guardar países mock en Firebase...');
+          const batch = writeBatch(db);
+          const paisesRef = collection(db, 'paises');
+          
+          for (const pais of paisesMock) {
+            const paisRef = doc(paisesRef, pais.id);
+            batch.set(paisRef, {
+              ...pais,
+              fechaCreacion: Timestamp.now()
+            });
+          }
+          
+          await batch.commit();
+          console.log('✅ Países mock guardados exitosamente en Firebase');
+        } catch (saveError) {
+          console.error('❌ Error guardando países mock en Firebase:', saveError);
+          // Continuar con los datos mock aunque falle el guardado
         }
-        
-        await batch.commit();
-        console.log('✅ Países mock guardados en Firebase');
       }
       
       return paisesMock;
@@ -386,13 +391,18 @@ export class PaisesService {
         
         // Intentar guardar el país en Firebase si estamos autenticados
         if (isAuth) {
-          console.log(`🔄 Guardando país ${paisId} en Firebase...`);
-          const paisRef = doc(db, 'paises', paisId);
-          await setDoc(paisRef, {
-            ...pais,
-            fechaCreacion: new Date()
-          });
-          console.log(`✅ País ${paisId} guardado en Firebase`);
+          try {
+            console.log(`🔄 Guardando país ${paisId} en Firebase...`);
+            const paisRef = doc(db, 'paises', paisId);
+            await setDoc(paisRef, {
+              ...pais,
+              fechaCreacion: Timestamp.now()
+            });
+            console.log(`✅ País ${paisId} guardado exitosamente en Firebase`);
+          } catch (saveError) {
+            console.error(`❌ Error guardando país ${paisId} en Firebase:`, saveError);
+            // Continuar con el país mock aunque falle el guardado
+          }
         }
       } else {
         console.log(`❌ País ${paisId} no encontrado`);

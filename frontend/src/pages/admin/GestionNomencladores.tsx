@@ -34,6 +34,7 @@ import { NomencladoresStats } from '../../components/admin/NomencladoresStats';
 import { PaisesNomencladores } from '../../components/admin/PaisesNomencladores';
 import { NomencladorModal } from '../../components/admin/NomencladorModal';
 import { SeedDataNomencladoresService } from '../../services/firebase/seedDataNomencladores';
+import { PaisesService } from '../../services/paises/paisesService';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -59,7 +60,7 @@ function GestionNomencladores() {
   const [selectedTipo, setSelectedTipo] = useState<string>('');
   const [selectedPais, setSelectedPais] = useState<string | null>(paisActual?.id || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isLoadingMockData, setIsLoadingMockData] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   // Estados para modal de nuevo país
   const [showPaisModal, setShowPaisModal] = useState(false);
@@ -78,6 +79,10 @@ function GestionNomencladores() {
   const [selectedNomenclador, setSelectedNomenclador] = useState<any | null>(null);
   const [nomencladorTipo, setNomencladorTipo] = useState<string>('');
   
+  // Estados para lista de países
+  const [paises, setPaises] = useState<any[]>([]);
+  const [loadingPaises, setLoadingPaises] = useState(false);
+  
   // Hook para modales
   const {
     confirmModal,
@@ -89,12 +94,82 @@ function GestionNomencladores() {
     showError
   } = useModals();
 
+  // Cargar países al inicio
+  useEffect(() => {
+    const cargarPaises = async () => {
+      setLoadingPaises(true);
+      try {
+        const paisesData = await PaisesService.getPaisesActivos();
+        
+        // Transformar a formato para el componente PaisesNomencladores
+        const paisesFormateados = paisesData.map(pais => ({
+          id: pais.id,
+          nombre: pais.nombre,
+          codigo: pais.codigo,
+          totalNomencladores: 0, // Se actualizará después
+          tieneDocumentoIdentidad: false,
+          tieneDocumentoFactura: false,
+          tieneImpuestos: false,
+          tieneFormasPago: false
+        }));
+        
+        setPaises(paisesFormateados);
+        
+        // Si no hay país seleccionado y hay países disponibles, seleccionar el primero
+        if (!selectedPais && paisesFormateados.length > 0) {
+          setSelectedPais(paisesFormateados[0].id);
+        }
+      } catch (error) {
+        console.error('Error cargando países:', error);
+        showError(
+          'Error al cargar países',
+          'No se pudieron cargar los países. Por favor, intente nuevamente.'
+        );
+      } finally {
+        setLoadingPaises(false);
+      }
+    };
+    
+    cargarPaises();
+  }, []);
+
   // Efecto para actualizar país seleccionado cuando cambia el país actual
   useEffect(() => {
     if (paisActual?.id) {
       setSelectedPais(paisActual.id);
     }
   }, [paisActual?.id]);
+
+  // Función para inicializar todos los países y nomencladores
+  const handleInitializeAll = async () => {
+    setIsInitializing(true);
+    try {
+      // 1. Obtener lista de países
+      const paisesData = await PaisesService.getPaisesActivos();
+      
+      // 2. Para cada país, insertar sus nomencladores
+      for (const pais of paisesData) {
+        await SeedDataNomencladoresService.insertarNomencladores(pais.id);
+      }
+      
+      showSuccess(
+        'Inicialización completada',
+        'Se han inicializado todos los países y nomencladores correctamente.'
+      );
+      
+      // Recargar datos
+      await recargarDatos();
+      
+    } catch (error) {
+      console.error('Error inicializando datos:', error);
+      showError(
+        'Error en inicialización',
+        'No se pudieron inicializar todos los países y nomencladores. Por favor, intente nuevamente.'
+      );
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   // Función para actualizar datos sin recargar la página completa
   const handleRefresh = async () => {
@@ -109,31 +184,6 @@ function GestionNomencladores() {
       );
     } finally {
       setIsRefreshing(false);
-    }
-  };
-
-  // Cargar datos mock en Firebase
-  const handleCargarDatosMock = async () => {
-    try {
-      setIsLoadingMockData(true);
-      
-      // Primero, intentar insertar nomencladores para todos los países
-      await SeedDataNomencladoresService.insertarNomencladoresTodosPaises();
-      
-      // Recargar datos después de insertar
-      await recargarDatos();
-      
-      showSuccess(
-        'Datos cargados exitosamente',
-        'Los nomencladores han sido cargados en la base de datos'
-      );
-    } catch (error) {
-      showError(
-        'Error al cargar datos',
-        error instanceof Error ? error.message : 'Error desconocido'
-      );
-    } finally {
-      setIsLoadingMockData(false);
     }
   };
 
@@ -217,26 +267,26 @@ function GestionNomencladores() {
           'País creado exitosamente',
           `El país ${paisFormData.nombre} ha sido creado con sus nomencladores básicos`
         );
+        
+        // Limpiar formulario y cerrar modal
+        setPaisFormData({
+          id: '',
+          nombre: '',
+          codigo: '',
+          codigoISO: '',
+          monedaPrincipal: '',
+          simboloMoneda: ''
+        });
+        setShowPaisModal(false);
+        
+        // Recargar datos
+        await recargarDatos();
       } else {
         showError(
-          'No se pudo crear el país',
-          'El país ya existe o hubo un problema al crearlo'
+          'Error al crear país',
+          'El país no pudo ser creado. Es posible que ya exista.'
         );
       }
-      
-      // Limpiar formulario y cerrar modal
-      setPaisFormData({
-        id: '',
-        nombre: '',
-        codigo: '',
-        codigoISO: '',
-        monedaPrincipal: '',
-        simboloMoneda: ''
-      });
-      setShowPaisModal(false);
-      
-      // Recargar datos
-      await recargarDatos();
     } catch (error) {
       showError(
         'Error al crear país',
@@ -346,12 +396,31 @@ function GestionNomencladores() {
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar datos</h3>
             <p className="text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={recargarDatos}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
-            >
-              Reintentar
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={recargarDatos}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+              >
+                Reintentar
+              </button>
+              <button
+                onClick={handleInitializeAll}
+                disabled={isInitializing}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isInitializing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Inicializando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    <span>Inicializar Datos</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -386,24 +455,47 @@ function GestionNomencladores() {
                 </div>
               </div>
               
-              <PaisesNomencladores
-                paises={[
-                  { id: 'peru', nombre: 'Perú', codigo: 'PE', totalNomencladores: 25, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'colombia', nombre: 'Colombia', codigo: 'CO', totalNomencladores: 22, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'mexico', nombre: 'México', codigo: 'MX', totalNomencladores: 20, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'argentina', nombre: 'Argentina', codigo: 'AR', totalNomencladores: 18, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'chile', nombre: 'Chile', codigo: 'CL', totalNomencladores: 16, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'uruguay', nombre: 'Uruguay', codigo: 'UY', totalNomencladores: 16, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'paraguay', nombre: 'Paraguay', codigo: 'PY', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'bolivia', nombre: 'Bolivia', codigo: 'BO', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'ecuador', nombre: 'Ecuador', codigo: 'EC', totalNomencladores: 14, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true },
-                  { id: 'venezuela', nombre: 'Venezuela', codigo: 'VE', totalNomencladores: 12, tieneDocumentoIdentidad: true, tieneDocumentoFactura: true, tieneImpuestos: true, tieneFormasPago: true }
-                ]}
-                onSelectPais={setSelectedPais}
-                paisSeleccionado={selectedPais}
-                onEditPais={() => {}}
-                onDeletePais={() => {}}
-              />
+              {loadingPaises ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mx-auto mb-2" />
+                  <p className="text-gray-600">Cargando países...</p>
+                </div>
+              ) : paises.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Globe className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-medium text-gray-900 mb-2">
+                    No hay países configurados
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    Comience creando su primer país para gestionar nomencladores.
+                  </p>
+                  <button
+                    onClick={handleInitializeAll}
+                    disabled={isInitializing}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2 mx-auto"
+                  >
+                    {isInitializing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Inicializando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Database className="h-4 w-4" />
+                        <span>Inicializar Países</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <PaisesNomencladores
+                  paises={paises}
+                  onSelectPais={setSelectedPais}
+                  paisSeleccionado={selectedPais}
+                  onEditPais={() => {}}
+                  onDeletePais={() => {}}
+                />
+              )}
             </div>
             
             {/* Enlace a configuración de mapeo */}
@@ -426,30 +518,6 @@ function GestionNomencladores() {
                   </RouterLink>
                 </div>
               </div>
-            </div>
-
-            {/* Botón para cargar datos mock */}
-            <div className="mt-4">
-              <button
-                onClick={handleCargarDatosMock}
-                disabled={isLoadingMockData}
-                className="w-full bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isLoadingMockData ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Cargando datos...</span>
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4" />
-                    <span>Cargar Datos en Firebase</span>
-                  </>
-                )}
-              </button>
-              <p className="text-xs text-gray-500 mt-1 text-center">
-                Carga todos los nomencladores en la base de datos
-              </p>
             </div>
           </div>
           
@@ -509,28 +577,19 @@ function GestionNomencladores() {
                     <h4 className="text-lg font-medium text-gray-900 mb-2">
                       No se encontraron nomencladores
                     </h4>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 mb-4">
                       {searchTerm || selectedTipo
                         ? 'Intente con otros criterios de búsqueda'
                         : 'No hay nomencladores configurados para este país'}
                     </p>
+                    
                     {!searchTerm && !selectedTipo && (
                       <button
-                        onClick={handleCargarDatosMock}
-                        disabled={isLoadingMockData}
-                        className="mt-4 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 mx-auto"
+                        onClick={() => SeedDataNomencladoresService.insertarNomencladores(selectedPais)}
+                        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2 mx-auto"
                       >
-                        {isLoadingMockData ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span>Cargando datos...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Database className="h-4 w-4" />
-                            <span>Cargar Datos en Firebase</span>
-                          </>
-                        )}
+                        <Database className="h-4 w-4" />
+                        <span>Inicializar Nomencladores</span>
                       </button>
                     )}
                   </div>
@@ -616,6 +675,23 @@ function GestionNomencladores() {
           </div>
           <div className="flex space-x-3">
             <button
+              onClick={handleInitializeAll}
+              disabled={isInitializing}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+            >
+              {isInitializing ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Inicializando...</span>
+                </>
+              ) : (
+                <>
+                  <Database className="h-5 w-5" />
+                  <span>Inicializar Datos</span>
+                </>
+              )}
+            </button>
+            <button
               onClick={handleRefresh}
               disabled={isRefreshing}
               className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -630,7 +706,7 @@ function GestionNomencladores() {
       {/* Contenido principal */}
       {renderMainContent()}
 
-      {/* Modales */}
+      {/* Modal de nuevo país */}
       {showPaisModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -832,27 +908,5 @@ function GestionNomencladores() {
     </div>
   );
 }
-
-// Componente Database para el icono
-const Database = (props: any) => {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-    </svg>
-  );
-};
 
 export { GestionNomencladores }

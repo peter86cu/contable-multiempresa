@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, writeBatch, doc, query, where, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, writeBatch, doc, query, where, Timestamp } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { 
@@ -18,12 +18,6 @@ export class SeedDataNomencladoresService {
     try {
       console.log(`🔍 Verificando nomencladores para país: ${paisId}`);
       
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-      
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
       const q = query(tiposDocRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
@@ -41,12 +35,6 @@ export class SeedDataNomencladoresService {
   // Insertar todos los nomencladores para un país
   static async insertarNomencladores(paisId: string): Promise<void> {
     try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
       console.log(`🔄 Insertando nomencladores para país: ${paisId}`);
       
       // Verificar si ya existen
@@ -170,12 +158,6 @@ export class SeedDataNomencladoresService {
   // Insertar nomencladores para todos los países
   static async insertarNomencladoresTodosPaises(): Promise<void> {
     try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
       console.log('🌎 Insertando nomencladores para todos los países');
       
       const paises = ['peru', 'colombia', 'mexico', 'argentina', 'chile', 'ecuador', 'bolivia', 'uruguay', 'paraguay', 'venezuela'];
@@ -200,12 +182,6 @@ export class SeedDataNomencladoresService {
   }> {
     try {
       console.log('📊 Obteniendo estadísticas de nomencladores');
-      
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
       
       const [
         tiposDocIdentidad,
@@ -283,12 +259,6 @@ export class SeedDataNomencladoresService {
     simboloMoneda: string;
   }): Promise<boolean> {
     try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
       console.log(`🌎 Creando nuevo país: ${paisData.nombre} (${paisData.id})`);
       
       // Verificar si ya existe el país
@@ -305,21 +275,19 @@ export class SeedDataNomencladoresService {
       await setDoc(paisRef, {
         ...paisData,
         activo: true,
-        fechaCreacion: new Date(),
-        separadorDecimal: paisData.id === 'peru' ? '.' : ',',
-        separadorMiles: paisData.id === 'peru' ? ',' : '.',
-        formatoFecha: 'DD/MM/YYYY',
+        fechaCreacion: Timestamp.now(),
         configuracionTributaria: {
           tiposDocumento: [],
           impuestos: [],
           regimenesTributarios: [],
-          formatoNumeroIdentificacion: '',
-          longitudNumeroIdentificacion: 0
+          formatoNumeroIdentificacion: '##########',
+          longitudNumeroIdentificacion: 10
         },
-        planContableBase: `pcg_${paisData.id}`
+        planContableBase: `pcg_${paisData.id}`,
+        separadorDecimal: '.',
+        separadorMiles: ',',
+        formatoFecha: 'DD/MM/YYYY'
       });
-      
-      console.log(`✅ País ${paisData.nombre} creado en la colección de países`);
       
       // Crear nomencladores básicos para el país
       await this.insertarNomencladores(paisData.id);
