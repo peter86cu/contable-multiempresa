@@ -1,6 +1,7 @@
 import { collection, addDoc, getDocs, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { Empresa } from '../../types';
+import { FirebaseAuthService } from './firebaseAuth';
 
 // Empresas de prueba para diferentes países y sectores
 const empresasPrueba: Omit<Empresa, 'id' | 'fechaCreacion' | 'fechaActualizacion'>[] = [
@@ -393,6 +394,9 @@ export class SeedDataEmpresasService {
   // Insertar empresas de prueba
   static async insertEmpresasPrueba(): Promise<void> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🏢 Insertando empresas de prueba...');
       
       // Verificar si ya existen empresas
@@ -441,6 +445,9 @@ export class SeedDataEmpresasService {
   // Verificar si existen empresas
   static async existenEmpresas(): Promise<boolean> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       const empresasRef = collection(db, 'empresas');
       const snapshot = await getDocs(empresasRef);
       const existe = snapshot.size > 0;

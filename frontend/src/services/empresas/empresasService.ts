@@ -1,11 +1,15 @@
 import { Empresa, Usuario, ConfiguracionContable } from '../../types';
 import { empresasFirebaseService } from '../firebase/empresas';
 import { SeedDataEmpresasService } from '../firebase/seedDataEmpresas';
+import { FirebaseAuthService } from '../firebase/firebaseAuth';
 
 export class EmpresasService {
   // Obtener empresas por usuario (cargando desde Firebase)
   static async getEmpresasByUsuario(usuarioId: string): Promise<Empresa[]> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Cargando empresas para usuario:', usuarioId);
       
       // Verificar si existen empresas en Firebase
@@ -31,6 +35,9 @@ export class EmpresasService {
   // Obtener empresas por país (desde Firebase)
   static async getEmpresasByPais(paisId: string): Promise<Empresa[]> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Cargando empresas por país:', paisId);
       
       if (!paisId) {
@@ -53,6 +60,9 @@ export class EmpresasService {
   // Obtener empresa por ID (desde Firebase)
   static async getEmpresa(empresaId: string): Promise<Empresa | null> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Buscando empresa por ID:', empresaId);
       
       const empresa = await empresasFirebaseService.getEmpresa(empresaId);
@@ -73,6 +83,9 @@ export class EmpresasService {
   // Crear nueva empresa (en Firebase)
   static async crearEmpresa(empresa: Omit<Empresa, 'id'>, usuarioCreadorId: string): Promise<string> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Creando empresa en Firebase:', empresa.nombre);
       
       // Asegurarse de que el usuario creador esté en la lista de usuarios asignados
@@ -93,6 +106,9 @@ export class EmpresasService {
   // Actualizar empresa (en Firebase)
   static async actualizarEmpresa(empresaId: string, datos: Partial<Empresa>): Promise<void> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Actualizando empresa en Firebase:', empresaId);
       
       await empresasFirebaseService.actualizarEmpresa(empresaId, datos);
@@ -106,6 +122,9 @@ export class EmpresasService {
   // Asignar usuario a empresa (en Firebase)
   static async asignarUsuario(empresaId: string, usuarioId: string): Promise<void> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Asignando usuario a empresa:', { empresaId, usuarioId });
       
       // Obtener empresa actual
@@ -134,6 +153,9 @@ export class EmpresasService {
   // Desasignar usuario de empresa (en Firebase)
   static async desasignarUsuario(empresaId: string, usuarioId: string): Promise<void> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       console.log('🔄 Desasignando usuario de empresa:', { empresaId, usuarioId });
       
       // Obtener empresa actual
@@ -162,6 +184,9 @@ export class EmpresasService {
   // Verificar acceso de usuario a empresa (en Firebase)
   static async verificarAccesoUsuario(empresaId: string, usuarioId: string): Promise<boolean> {
     try {
+      // Ensure user is authenticated before making Firebase requests
+      await FirebaseAuthService.ensureAuthenticated();
+      
       // Obtener empresa
       const empresa = await empresasFirebaseService.getEmpresa(empresaId);
       const tieneAcceso = empresa?.usuariosAsignados.includes(usuarioId) || false;
