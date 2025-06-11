@@ -57,94 +57,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('🔍 Buscando permisos en:', auth0User);
           
           // Buscar permisos en diferentes ubicaciones
-          let permisos = [];
+          let permisos = auth0User['https://contaempresa.com/permisos'] || 
+                        auth0User.app_metadata?.permisos || 
+                        auth0User.user_metadata?.permisos ||
+                        auth0User['permisos'];
           
-          // Primero buscar en user_metadata (tiene prioridad)
-          if (auth0User.user_metadata && auth0User.user_metadata.permisos) {
-            permisos = auth0User.user_metadata.permisos;
-            console.log('🔑 Permisos encontrados en user_metadata:', permisos);
-          } 
-          // Luego buscar en app_metadata
-          else if (auth0User.app_metadata && auth0User.app_metadata.permisos) {
-            permisos = auth0User.app_metadata.permisos;
-            console.log('🔑 Permisos encontrados en app_metadata:', permisos);
+          // Verificar si permisos es un string (puede ocurrir con Auth0)
+          if (typeof permisos === 'string') {
+            try {
+              permisos = JSON.parse(permisos);
+            } catch (e) {
+              // Si no es un JSON válido, convertirlo a array
+              permisos = [permisos];
+            }
           }
-          // Luego buscar en namespaces personalizados
-          else if (auth0User['https://contaempresa.com/permisos']) {
-            permisos = auth0User['https://contaempresa.com/permisos'];
-            console.log('🔑 Permisos encontrados en namespace personalizado:', permisos);
-          }
-          // Finalmente, buscar directamente en el objeto
-          else if (auth0User['permisos']) {
-            permisos = auth0User['permisos'];
-            console.log('🔑 Permisos encontrados directamente en el objeto:', permisos);
-          }
-          // Si no se encuentra, usar valor por defecto
-          else {
+          
+          // Si no se encuentran permisos, usar valor por defecto
+          if (!permisos) {
+            console.warn('⚠️ No se encontraron permisos, usando valor por defecto: [\'contabilidad:read\']');
             permisos = ['contabilidad:read'];
-            console.log('⚠️ No se encontraron permisos, usando valor por defecto:', permisos);
           }
           
           console.log('🔑 Permisos encontrados:', permisos);
           
           // Buscar rol en diferentes ubicaciones
-          let rol;
+          let rol = auth0User['https://contaempresa.com/rol'] || 
+                   auth0User.app_metadata?.rol || 
+                   auth0User.user_metadata?.rol ||
+                   auth0User['rol'];
           
-          // Primero buscar en user_metadata (tiene prioridad)
-          if (auth0User.user_metadata && auth0User.user_metadata.rol) {
-            rol = auth0User.user_metadata.rol;
-            console.log('👤 Rol encontrado en user_metadata:', rol);
-          }
-          // Luego buscar en app_metadata
-          else if (auth0User.app_metadata && auth0User.app_metadata.rol) {
-            rol = auth0User.app_metadata.rol;
-            console.log('👤 Rol encontrado en app_metadata:', rol);
-          }
-          // Luego buscar en namespaces personalizados
-          else if (auth0User['https://contaempresa.com/rol']) {
-            rol = auth0User['https://contaempresa.com/rol'];
-            console.log('👤 Rol encontrado en namespace personalizado:', rol);
-          }
-          // Finalmente, buscar directamente en el objeto
-          else if (auth0User['rol']) {
-            rol = auth0User['rol'];
-            console.log('👤 Rol encontrado directamente en el objeto:', rol);
-          }
-          // Si no se encuentra, usar valor por defecto
-          else {
+          // Si no se encuentra rol, usar valor por defecto
+          if (!rol) {
+            console.warn('⚠️ No se encontró rol, usando valor por defecto: usuario');
             rol = 'usuario';
-            console.log('⚠️ No se encontró rol, usando valor por defecto:', rol);
           }
           
           console.log('👤 Rol encontrado:', rol);
           
           // Buscar empresas asignadas en diferentes ubicaciones
-          let empresasAsignadas;
+          let empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
+                                 auth0User.app_metadata?.empresas || 
+                                 auth0User.user_metadata?.empresas ||
+                                 auth0User['empresas'];
           
-          // Primero buscar en user_metadata (tiene prioridad)
-          if (auth0User.user_metadata && auth0User.user_metadata.empresas) {
-            empresasAsignadas = auth0User.user_metadata.empresas;
-            console.log('🏢 Empresas asignadas encontradas en user_metadata:', empresasAsignadas);
+          // Verificar si empresasAsignadas es un string (puede ocurrir con Auth0)
+          if (typeof empresasAsignadas === 'string') {
+            try {
+              empresasAsignadas = JSON.parse(empresasAsignadas);
+            } catch (e) {
+              // Si no es un JSON válido, convertirlo a array
+              empresasAsignadas = [empresasAsignadas];
+            }
           }
-          // Luego buscar en app_metadata
-          else if (auth0User.app_metadata && auth0User.app_metadata.empresas) {
-            empresasAsignadas = auth0User.app_metadata.empresas;
-            console.log('🏢 Empresas asignadas encontradas en app_metadata:', empresasAsignadas);
-          }
-          // Luego buscar en namespaces personalizados
-          else if (auth0User['https://contaempresa.com/empresas']) {
-            empresasAsignadas = auth0User['https://contaempresa.com/empresas'];
-            console.log('🏢 Empresas asignadas encontradas en namespace personalizado:', empresasAsignadas);
-          }
-          // Finalmente, buscar directamente en el objeto
-          else if (auth0User['empresas']) {
-            empresasAsignadas = auth0User['empresas'];
-            console.log('🏢 Empresas asignadas encontradas directamente en el objeto:', empresasAsignadas);
-          }
-          // Si no se encuentra, usar valor por defecto
-          else {
+          
+          // Si no se encuentran empresas asignadas, usar valor por defecto
+          if (!empresasAsignadas) {
+            console.warn('⚠️ No se encontraron empresas asignadas, usando valor por defecto: [\'dev-empresa-pe\', \'dev-empresa-co\', \'dev-empresa-mx\']');
             empresasAsignadas = ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
-            console.log('⚠️ No se encontraron empresas asignadas, usando valor por defecto:', empresasAsignadas);
           }
           
           console.log('🏢 Empresas asignadas encontradas:', empresasAsignadas);
@@ -219,11 +188,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Si tiene admin:all, tiene todos los permisos
     if (usuario.permisos.includes('admin:all')) {
-      console.log(`🔍 Verificando permiso ${permiso}: ✅ Sí (por admin:all)`);
-      console.log(`🔑 Permisos disponibles: admin:all`);
+      console.log(`🔍 Verificando permiso ${permiso}: ✅ Sí (tiene admin:all)`);
+      console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);
       return true;
     }
     
+    // Verificar si tiene el permiso específico
     const tienePermiso = usuario.permisos.includes(permiso);
     console.log(`🔍 Verificando permiso ${permiso}: ${tienePermiso ? '✅ Sí' : '❌ No'}`);
     console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);

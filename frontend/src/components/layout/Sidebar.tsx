@@ -32,11 +32,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // Verificar si el usuario tiene el permiso admin:all
-  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
+  // Agregar logs para depuración
   console.log("🔍 SIDEBAR - Usuario:", usuario);
   console.log("🔑 SIDEBAR - Permisos del usuario:", usuario?.permisos);
-  console.log("🔑 SIDEBAR - Usuario tiene admin:all:", hasAdminAll);
+  console.log("🔑 SIDEBAR - Usuario tiene admin:all:", usuario?.permisos?.includes('admin:all') || false);
+
+  // Verificar si el usuario tiene el permiso admin:all
+  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
 
   const menuItems = [
     {

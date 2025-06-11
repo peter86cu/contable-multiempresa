@@ -29,8 +29,6 @@ export class Auth0UsersService {
       if (options.perPage !== undefined) params.append('per_page', options.perPage.toString());
       if (options.query) params.append('q', options.query);
 
-      console.log(`Llamando a Edge Function: ${this.baseUrl}?${params.toString()}`);
-
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
         headers: {
@@ -40,8 +38,7 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        console.error('Error en Auth0 API:', error);
+        const error = await response.json();
         throw new Error(`Error en Auth0 API: ${error.message || response.statusText}`);
       }
 
@@ -120,15 +117,9 @@ export class Auth0UsersService {
         },
         user_metadata: {
           created_by: 'admin_panel',
-          creation_date: new Date().toISOString(),
-          rol: userData.rol,
-          empresas: userData.empresas,
-          permisos: permisos,
-          subdominio: userData.subdominio || userData.empresas[0] || ''
+          creation_date: new Date().toISOString()
         }
       };
-
-      console.log('Enviando datos a Edge Function para crear usuario:', requestData.email);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}`, {
@@ -141,8 +132,7 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        console.error('Error creando usuario en Auth0:', error);
+        const error = await response.json();
         throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
       }
 
@@ -194,19 +184,6 @@ export class Auth0UsersService {
       if (Object.keys(appMetadata).length > 0) {
         requestData.app_metadata = appMetadata;
       }
-      
-      // Metadatos de usuario
-      const userMetadata: any = {};
-      if (userData.rol) userMetadata.rol = userData.rol;
-      if (userData.empresas) userMetadata.empresas = userData.empresas;
-      if (userData.permisos) userMetadata.permisos = userData.permisos;
-      if (userData.subdominio) userMetadata.subdominio = userData.subdominio;
-      
-      if (Object.keys(userMetadata).length > 0) {
-        requestData.user_metadata = userMetadata;
-      }
-
-      console.log('Enviando datos a Edge Function para actualizar usuario:', userId);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}/${userId}`, {
@@ -219,8 +196,7 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: response.statusText }));
-        console.error('Error actualizando usuario en Auth0:', error);
+        const error = await response.json();
         throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
       }
 
