@@ -92,13 +92,10 @@ export class Auth0UsersService {
       if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
         console.log('Modo desarrollo: Simulando creación de usuario en Auth0', userData);
         return {
-          id: `auth0_${Date.now()}`,
+          id: `auth0_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           email: userData.email,
-          nombre: userData.name,
-          rol: userData.rol,
-          empresasAsignadas: userData.empresas,
-          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
-          fechaCreacion: new Date().toISOString()
+          name: userData.name,
+          created_at: new Date().toISOString()
         };
       }
 
@@ -227,6 +224,37 @@ export class Auth0UsersService {
         return { id: userId, ...userData };
       }
       
+      throw error;
+    }
+  }
+
+  /**
+   * Elimina un usuario en Auth0
+   * @param userId ID del usuario
+   */
+  static async deleteUser(userId: string) {
+    try {
+      // Verificar si estamos en modo desarrollo sin credenciales reales
+      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('Modo desarrollo: Simulando eliminación de usuario en Auth0', userId);
+        return;
+      }
+
+      // Realizar petición a la Edge Function
+      const response = await fetch(`${this.baseUrl}/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
+      }
+    } catch (error) {
+      console.error('Error eliminando usuario en Auth0:', error);
       throw error;
     }
   }

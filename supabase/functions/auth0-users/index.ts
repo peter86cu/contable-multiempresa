@@ -36,6 +36,8 @@ async function getAuth0ManagementToken() {
       throw new Error('Faltan variables de entorno de Auth0 Management API');
     }
 
+    console.log(`Obteniendo token para Auth0 Management API: ${domain}`);
+
     const response = await fetch(`https://${domain}/oauth/token`, {
       method: 'POST',
       headers: {
@@ -50,7 +52,8 @@ async function getAuth0ManagementToken() {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('Error response from Auth0:', error);
       throw new Error(`Error obteniendo token: ${error.error_description || response.statusText}`);
     }
 
@@ -60,6 +63,171 @@ async function getAuth0ManagementToken() {
     console.error('Error generando token de Auth0:', error);
     throw error;
   }
+}
+
+// Función para obtener usuarios de Auth0 (similar al ejemplo proporcionado)
+async function getAuth0Users(domain: string, token: string, params: any) {
+  try {
+    // Construir URL con parámetros básicos
+    const searchParams = new URLSearchParams();
+    
+    // Parámetros básicos
+    searchParams.append('per_page', params.per_page?.toString() || '100');
+    searchParams.append('page', params.page?.toString() || '0');
+    searchParams.append('include_fields', 'true');
+    searchParams.append('fields', 'user_id,email,name,nickname,picture,created_at,updated_at,last_login,blocked,app_metadata,user_metadata');
+    
+    // Agregar query si existe
+    if (params.q) {
+      searchParams.append('q', params.q);
+      searchParams.append('search_engine', 'v2'); // Usar v2 en lugar de v3
+    }
+
+    const url = `https://${domain}/api/v2/users?${searchParams.toString()}`;
+    console.log(`Fetching users from Auth0: ${url}`);
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Auth0 API Error Response:', errorText);
+      throw new Error(`Error obteniendo usuarios de Auth0: ${response.status} ${response.statusText}`);
+    }
+
+    const users = await response.json();
+    console.log(`Retrieved ${users.length} users from Auth0`);
+    return users;
+  } catch (error) {
+    console.error('Error fetching users from Auth0:', error);
+    throw error;
+  }
+}
+
+// Función para crear usuario en Auth0
+async function createAuth0User(domain: string, token: string, userData: any) {
+  try {
+    console.log(`Creating user in Auth0: ${domain}`);
+    
+    const response = await fetch(`https://${domain}/api/v2/users`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('Error response from Auth0:', error);
+      throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error creating user in Auth0:', error);
+    throw error;
+  }
+}
+
+// Función para actualizar usuario en Auth0
+async function updateAuth0User(domain: string, token: string, userId: string, userData: any) {
+  try {
+    console.log(`Updating user in Auth0: ${userId}`);
+    
+    const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData)
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('Error response from Auth0:', error);
+      throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating user in Auth0:', error);
+    throw error;
+  }
+}
+
+// Función para eliminar usuario en Auth0
+async function deleteAuth0User(domain: string, token: string, userId: string) {
+  try {
+    console.log(`Deleting user in Auth0: ${userId}`);
+    
+    const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: response.statusText }));
+      console.error('Error response from Auth0:', error);
+      throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting user in Auth0:', error);
+    throw error;
+  }
+}
+
+// Datos mock para desarrollo
+function getMockUsers() {
+  return [
+    {
+      id: 'auth0|123456789',
+      email: 'admin@contaempresa.com',
+      nombre: 'Administrador',
+      avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
+      rol: 'super_admin',
+      empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
+      permisos: ['admin:all'],
+      fechaCreacion: new Date().toISOString(),
+      ultimaConexion: new Date().toISOString(),
+      activo: true
+    },
+    {
+      id: 'auth0|987654321',
+      email: 'contador@contaempresa.com',
+      nombre: 'María González',
+      avatar: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=150',
+      rol: 'contador',
+      empresasAsignadas: ['dev-empresa-pe'],
+      permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
+      fechaCreacion: new Date().toISOString(),
+      ultimaConexion: new Date().toISOString(),
+      activo: true
+    },
+    {
+      id: 'auth0|567891234',
+      email: 'usuario@contaempresa.com',
+      nombre: 'Carlos Mendoza',
+      avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
+      rol: 'usuario',
+      empresasAsignadas: ['dev-empresa-pe'],
+      permisos: ['contabilidad:read'],
+      fechaCreacion: new Date().toISOString(),
+      ultimaConexion: null,
+      activo: true
+    }
+  ];
 }
 
 // Función principal
@@ -88,44 +256,7 @@ Deno.serve(async (req) => {
       console.log('Modo desarrollo: Devolviendo datos mock para Auth0 API');
       
       // Datos mock para desarrollo
-      const mockUsers = [
-        {
-          id: 'auth0|123456789',
-          email: 'admin@contaempresa.com',
-          nombre: 'Administrador',
-          avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-          rol: 'super_admin',
-          empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
-          permisos: ['admin:all'],
-          fechaCreacion: new Date().toISOString(),
-          ultimaConexion: new Date().toISOString(),
-          activo: true
-        },
-        {
-          id: 'auth0|987654321',
-          email: 'contador@contaempresa.com',
-          nombre: 'María González',
-          avatar: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=150',
-          rol: 'contador',
-          empresasAsignadas: ['dev-empresa-pe'],
-          permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
-          fechaCreacion: new Date().toISOString(),
-          ultimaConexion: new Date().toISOString(),
-          activo: true
-        },
-        {
-          id: 'auth0|567891234',
-          email: 'usuario@contaempresa.com',
-          nombre: 'Carlos Mendoza',
-          avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-          rol: 'usuario',
-          empresasAsignadas: ['dev-empresa-pe'],
-          permisos: ['contabilidad:read'],
-          fechaCreacion: new Date().toISOString(),
-          ultimaConexion: null,
-          activo: true
-        }
-      ];
+      const mockUsers = getMockUsers();
       
       if (method === 'GET') {
         // Filtrar usuarios según parámetros
@@ -220,38 +351,15 @@ Deno.serve(async (req) => {
         const perPage = parseInt(url.searchParams.get('per_page') || '100');
         const query = url.searchParams.get('q') || '';
 
-        // Construir URL con parámetros
-        const searchParams = new URLSearchParams();
-        searchParams.append('page', page.toString());
-        searchParams.append('per_page', perPage.toString());
-        searchParams.append('fields', 'user_id,email,name,nickname,picture,created_at,updated_at,last_login,blocked,app_metadata');
-        searchParams.append('include_fields', 'true');
-        
-        // Solo agregar parámetros de búsqueda si hay una consulta
-        if (query) {
-          searchParams.append('q', query);
-          // Usar v2 en lugar de v3 para evitar el error 400
-          searchParams.append('search_engine', 'v2');
-        }
-
-        console.log(`Fetching users from Auth0: https://${domain}/api/v2/users?${searchParams.toString()}`);
+        // Preparar parámetros para Auth0 API
+        const params = {
+          page,
+          per_page: perPage,
+          q: query || undefined
+        };
 
         // Obtener usuarios de Auth0
-        const response = await fetch(`https://${domain}/api/v2/users?${searchParams.toString()}`, {
-          headers: {
-            'Authorization': `Bearer ${managementToken}`,
-            'Content-Type': 'application/json',
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Auth0 API Error Response:', errorText);
-          throw new Error(`Error obteniendo usuarios de Auth0: ${response.status} ${response.statusText}`);
-        }
-
-        const usuarios = await response.json();
-        console.log(`Retrieved ${usuarios.length} users from Auth0`);
+        const usuarios = await getAuth0Users(domain, managementToken, params);
 
         // Mapear usuarios a formato deseado
         const usuariosMapeados = usuarios.map((u: any) => ({
@@ -319,21 +427,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       
       // Crear usuario en Auth0
-      const response = await fetch(`https://${domain}/api/v2/users`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${managementToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
-      }
-
-      const nuevoUsuario = await response.json();
+      const nuevoUsuario = await createAuth0User(domain, managementToken, body);
       
       // Mapear usuario a formato deseado
       const usuarioMapeado = {
@@ -362,21 +456,7 @@ Deno.serve(async (req) => {
       const body = await req.json();
       
       // Actualizar usuario en Auth0
-      const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${managementToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
-      }
-
-      const usuarioActualizado = await response.json();
+      const usuarioActualizado = await updateAuth0User(domain, managementToken, userId, body);
       
       // Mapear usuario a formato deseado
       const usuarioMapeado = {
@@ -402,18 +482,7 @@ Deno.serve(async (req) => {
       const userId = path[0];
       
       // Eliminar usuario en Auth0
-      const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${managementToken}`,
-          'Content-Type': 'application/json',
-        }
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
-      }
+      await deleteAuth0User(domain, managementToken, userId);
       
       // Devolver respuesta
       return new Response(
