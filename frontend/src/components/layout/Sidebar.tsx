@@ -17,7 +17,7 @@ import {
   X,
   Database
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -32,12 +32,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // DEPURACIÓN: Mostrar información detallada sobre el usuario y sus permisos
+  // Verificar si el usuario tiene el permiso admin:all
+  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
   console.log("🔍 SIDEBAR - Usuario:", usuario);
   console.log("🔑 SIDEBAR - Permisos del usuario:", usuario?.permisos);
-  
-  // Verificar explícitamente si el usuario tiene el permiso admin:all
-  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
   console.log("🔑 SIDEBAR - Usuario tiene admin:all:", hasAdminAll);
 
   const menuItems = [
@@ -198,11 +196,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {menuItems.map((item) => {
-            // DEPURACIÓN: Mostrar información sobre cada ítem del menú
-            console.log(`🔍 SIDEBAR - Evaluando ítem: ${item.title}, permiso: ${item.permiso}`);
-            
             // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los menús
             // Si no, verificar el permiso específico
+            console.log(`🔍 SIDEBAR - Evaluando ítem: ${item.title}, permiso: ${item.permiso}`);
             const tienePermiso = hasAdminAll || 
                                item.permiso === null || 
                                (item.permiso && hasPermission(item.permiso));
@@ -237,11 +233,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {expandedMenu === item.title && (
                       <div className="ml-4 mt-2 space-y-1">
                         {item.submenu.map((subItem) => {
-                          // DEPURACIÓN: Mostrar información sobre cada subítem
-                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
-                          
                           // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los submenús
                           // Si no, verificar el permiso específico
+                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
                           const tienePermisoSub = hasAdminAll || 
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
@@ -250,7 +244,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                           
                           // Si no tiene permiso, no mostrar el subítem
                           if (!tienePermisoSub) {
-                            console.log(`❌ SIDEBAR - Subítem ${subItem.title} - No tiene permiso, ocultando`);
                             return null;
                           }
                           
