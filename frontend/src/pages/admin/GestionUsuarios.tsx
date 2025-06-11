@@ -21,11 +21,11 @@ import {
   Loader2,
   Download
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useSesion } from '../context/SesionContext';
-import { NotificationModal } from '../components/common/NotificationModal';
-import { useModals } from '../hooks/useModals';
-import { Auth0UsersService } from '../services/auth0/users';
+import { useAuth } from '@/context/AuthContext';
+import { useSesion } from '@/context/SesionContext';
+import { NotificationModal } from '@/components/common/NotificationModal';
+import { useModals } from '@/hooks/useModals';
+import { Auth0UsersService } from '@/services/auth0/users';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
