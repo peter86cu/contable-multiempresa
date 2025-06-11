@@ -139,6 +139,20 @@ export class Auth0UsersService {
       return await response.json();
     } catch (error) {
       console.error('Error creando usuario en Auth0:', error);
+      
+      // En caso de error en desarrollo, devolver un mock
+      if (import.meta.env.DEV) {
+        return {
+          id: `auth0_${Date.now()}`,
+          email: userData.email,
+          nombre: userData.name,
+          rol: userData.rol,
+          empresasAsignadas: userData.empresas,
+          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
+          fechaCreacion: new Date().toISOString()
+        };
+      }
+      
       throw error;
     }
   }
@@ -203,6 +217,12 @@ export class Auth0UsersService {
       return await response.json();
     } catch (error) {
       console.error('Error actualizando usuario en Auth0:', error);
+      
+      // En caso de error en desarrollo, devolver un mock
+      if (import.meta.env.DEV) {
+        return { id: userId, ...userData };
+      }
+      
       throw error;
     }
   }
