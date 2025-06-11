@@ -29,7 +29,7 @@ export class Auth0UsersService {
       if (options.perPage !== undefined) params.append('per_page', options.perPage.toString());
       if (options.query) params.append('q', options.query);
 
-      console.log(`Fetching users from: ${this.baseUrl}?${params.toString()}`);
+      console.log(`Obteniendo usuarios de Auth0: ${this.baseUrl}?${params.toString()}`);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
@@ -39,12 +39,23 @@ export class Auth0UsersService {
         }
       });
 
-      if (!response.ok) {
+      // Verificar si la respuesta contiene datos mock
+      const isMockData = response.headers.get('X-Mock-Data') === 'true';
+      
+      if (!response.ok && !isMockData) {
         const error = await response.json();
         throw new Error(`Error en Auth0 API: ${error.message || response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      
+      if (isMockData) {
+        console.log('Recibidos datos mock de Auth0');
+      } else {
+        console.log(`Recibidos ${data.length} usuarios de Auth0`);
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error obteniendo usuarios de Auth0:', error);
       
@@ -92,10 +103,13 @@ export class Auth0UsersService {
       if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
         console.log('Modo desarrollo: Simulando creación de usuario en Auth0', userData);
         return {
-          id: `auth0_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: `auth0_${Date.now()}`,
           email: userData.email,
-          name: userData.name,
-          created_at: new Date().toISOString()
+          nombre: userData.name,
+          rol: userData.rol,
+          empresasAsignadas: userData.empresas,
+          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
+          fechaCreacion: new Date().toISOString()
         };
       }
 
@@ -120,7 +134,7 @@ export class Auth0UsersService {
         }
       };
 
-      console.log(`Creating user in Auth0: ${this.baseUrl}`);
+      console.log('Creando usuario en Auth0:', userData.email);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}`, {
@@ -132,29 +146,42 @@ export class Auth0UsersService {
         body: JSON.stringify(requestData)
       });
 
-      if (!response.ok) {
+      // Verificar si la respuesta contiene datos mock
+      const isMockData = response.headers.get('X-Mock-Data') === 'true';
+      
+      if (!response.ok && !isMockData) {
         const error = await response.json();
         throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      
+      if (isMockData) {
+        console.log('Recibidos datos mock de creación de usuario');
+      } else {
+        console.log('Usuario creado correctamente en Auth0:', data.id);
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error creando usuario en Auth0:', error);
       
-      // En caso de error en desarrollo, devolver un mock
-      if (import.meta.env.DEV) {
-        return {
-          id: `auth0_${Date.now()}`,
-          email: userData.email,
-          nombre: userData.name,
-          rol: userData.rol,
-          empresasAsignadas: userData.empresas,
-          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
-          fechaCreacion: new Date().toISOString()
-        };
+      // En caso de error en producción, propagar el error
+      if (!import.meta.env.DEV) {
+        throw error;
       }
       
-      throw error;
+      // En desarrollo, devolver un usuario mock
+      return {
+        id: `auth0_${Date.now()}`,
+        email: userData.email,
+        nombre: userData.name,
+        rol: userData.rol,
+        empresasAsignadas: userData.empresas,
+        permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
+        fechaCreacion: new Date().toISOString(),
+        mock: true
+      };
     }
   }
 
@@ -200,6 +227,8 @@ export class Auth0UsersService {
         requestData.app_metadata = appMetadata;
       }
 
+      console.log('Actualizando usuario en Auth0:', userId);
+
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}/${userId}`, {
         method: 'PATCH',
@@ -210,52 +239,37 @@ export class Auth0UsersService {
         body: JSON.stringify(requestData)
       });
 
-      if (!response.ok) {
+      // Verificar si la respuesta contiene datos mock
+      const isMockData = response.headers.get('X-Mock-Data') === 'true';
+      
+      if (!response.ok && !isMockData) {
         const error = await response.json();
         throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      
+      if (isMockData) {
+        console.log('Recibidos datos mock de actualización de usuario');
+      } else {
+        console.log('Usuario actualizado correctamente en Auth0');
+      }
+      
+      return data;
     } catch (error) {
       console.error('Error actualizando usuario en Auth0:', error);
       
-      // En caso de error en desarrollo, devolver un mock
-      if (import.meta.env.DEV) {
-        return { id: userId, ...userData };
+      // En caso de error en producción, propagar el error
+      if (!import.meta.env.DEV) {
+        throw error;
       }
       
-      throw error;
-    }
-  }
-
-  /**
-   * Elimina un usuario en Auth0
-   * @param userId ID del usuario
-   */
-  static async deleteUser(userId: string) {
-    try {
-      // Verificar si estamos en modo desarrollo sin credenciales reales
-      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('Modo desarrollo: Simulando eliminación de usuario en Auth0', userId);
-        return;
-      }
-
-      // Realizar petición a la Edge Function
-      const response = await fetch(`${this.baseUrl}/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Error eliminando usuario en Auth0:', error);
-      throw error;
+      // En desarrollo, devolver datos simulados
+      return { 
+        id: userId, 
+        ...userData, 
+        mock: true 
+      };
     }
   }
 

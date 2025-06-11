@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -31,18 +31,18 @@ import {
   X,
   Shield
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { useSesion } from '../../context/SesionContext';
-import { NotificationModal } from '../../components/common/NotificationModal';
-import { useModals } from '../../hooks/useModals';
-import { Auth0UsersService } from '../../services/auth0/users';
-import { RolesPermisosList } from '../../components/admin/RolesPermisosList';
+import { useAuth } from '@/context/AuthContext';
+import { useSesion } from '@/context/SesionContext';
+import { NotificationModal } from '@/components/common/NotificationModal';
+import { useModals } from '@/hooks/useModals';
+import { Auth0UsersService } from '@/services/auth0/users';
+import { RolesPermisosList } from '@/components/admin/RolesPermisosList';
 import { 
   ROLES, 
   PERMISOS, 
   PERMISOS_POR_ROL, 
   getPermisosPorRol 
-} from '../../services/auth0/roles';
+} from '@/services/auth0/roles';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
@@ -62,6 +62,7 @@ export const GestionUsuarios: React.FC = () => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   // Hook para modales
   const {
@@ -135,53 +136,6 @@ export const GestionUsuarios: React.FC = () => {
       return usuariosData;
     } catch (error) {
       console.error('Error cargando usuarios:', error);
-      
-      // En modo desarrollo, usar datos mock
-      if (import.meta.env.DEV) {
-        const mockUsers = [
-          {
-            id: 'auth0|123456789',
-            email: 'admin@contaempresa.com',
-            nombre: 'Administrador',
-            avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-            rol: 'super_admin',
-            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
-            permisos: ['admin:all'],
-            fechaCreacion: new Date().toISOString(),
-            ultimaConexion: new Date().toISOString(),
-            activo: true
-          },
-          {
-            id: 'auth0|987654321',
-            email: 'contador@contaempresa.com',
-            nombre: 'María González',
-            avatar: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=150',
-            rol: 'contador',
-            empresasAsignadas: ['dev-empresa-pe'],
-            permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
-            fechaCreacion: new Date().toISOString(),
-            ultimaConexion: new Date().toISOString(),
-            activo: true
-          },
-          {
-            id: 'auth0|567891234',
-            email: 'usuario@contaempresa.com',
-            nombre: 'Carlos Mendoza',
-            avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=150',
-            rol: 'usuario',
-            empresasAsignadas: ['dev-empresa-pe'],
-            permisos: ['contabilidad:read'],
-            fechaCreacion: new Date().toISOString(),
-            ultimaConexion: null,
-            activo: true
-          }
-        ];
-        
-        setUsuarios(mockUsers);
-        setHasMore(false);
-        return mockUsers;
-      }
-      
       showError(
         'Error al cargar usuarios',
         error instanceof Error ? error.message : 'Error desconocido'
@@ -200,36 +154,22 @@ export const GestionUsuarios: React.FC = () => {
   const verificarConexionAuth0 = async () => {
     try {
       setCheckingAuth0(true);
-      
-      // En modo desarrollo, simular conexión exitosa
-      if (import.meta.env.DEV) {
-        console.log('Modo desarrollo: Simulando verificación de Auth0');
-        setAuth0Connected(true);
-        return;
-      }
-      
       // Verificar si las variables de entorno están configuradas
       const domain = import.meta.env.VITE_AUTH0_DOMAIN;
       const mgmtClientId = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_ID;
       const mgmtClientSecret = import.meta.env.VITE_AUTH0_MANAGEMENT_CLIENT_SECRET;
       
       const connected = !!(domain && mgmtClientId && mgmtClientSecret);
+      setAuth0Connected(connected);
       
       if (connected) {
         // Intentar cargar usuarios como prueba de conexión
-        try {
-          const usuarios = await Auth0UsersService.getUsers({ perPage: 1 });
-          setAuth0Connected(usuarios && Array.isArray(usuarios));
-        } catch (error) {
-          console.error('Error verificando conexión con Auth0:', error);
-          setAuth0Connected(false);
-        }
-      } else {
-        setAuth0Connected(false);
+        const usuarios = await Auth0UsersService.getUsers({ perPage: 1 });
+        setAuth0Connected(usuarios && Array.isArray(usuarios));
       }
     } catch (error) {
-      console.error('Error verificando conexión con Auth0:', error);
       setAuth0Connected(false);
+      console.error('Error verificando conexión con Auth0:', error);
     } finally {
       setCheckingAuth0(false);
     }
@@ -245,7 +185,6 @@ export const GestionUsuarios: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // En modo desarrollo, siempre permitir
     if (!auth0Connected && !import.meta.env.DEV) {
       showError(
         'Error de configuración',
@@ -255,9 +194,11 @@ export const GestionUsuarios: React.FC = () => {
     }
     
     try {
+      setIsCreatingUser(true);
+      
       if (modalType === 'create' || modalType === 'invite') {
         // Crear usuario en Auth0
-        await Auth0UsersService.createUser({
+        const result = await Auth0UsersService.createUser({
           email: formData.email,
           password: formData.generatePassword ? generateRandomPassword() : formData.password,
           name: formData.nombre,
@@ -267,6 +208,9 @@ export const GestionUsuarios: React.FC = () => {
         });
         
         showSuccess('Usuario creado', 'El usuario ha sido creado exitosamente');
+        
+        // Recargar usuarios
+        await cargarUsuarios();
       } else if (modalType === 'edit' && selectedUser) {
         // Actualizar usuario en Auth0
         await Auth0UsersService.updateUser(selectedUser.id, {
@@ -276,9 +220,11 @@ export const GestionUsuarios: React.FC = () => {
         });
         
         showSuccess('Usuario actualizado', 'El usuario ha sido actualizado exitosamente');
+        
+        // Recargar usuarios
+        await cargarUsuarios();
       }
 
-      await cargarUsuarios();
       setShowModal(false);
       resetForm();
     } catch (error) {
@@ -287,6 +233,8 @@ export const GestionUsuarios: React.FC = () => {
         'Error al guardar usuario',
         error instanceof Error ? error.message : 'Error desconocido'
       );
+    } finally {
+      setIsCreatingUser(false);
     }
   };
 
@@ -935,17 +883,27 @@ export const GestionUsuarios: React.FC = () => {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  disabled={isCreatingUser}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={!auth0Connected && !import.meta.env.DEV}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isCreatingUser || (!auth0Connected && !import.meta.env.DEV)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
                 >
-                  <Save className="h-4 w-4" />
-                  {modalType === 'create' ? 'Crear Usuario' : 
-                   modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
+                  {isCreatingUser ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Procesando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4" />
+                      {modalType === 'create' ? 'Crear Usuario' : 
+                      modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
+                    </>
+                  )}
                 </button>
               </div>
             </form>
