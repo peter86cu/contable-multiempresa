@@ -19,6 +19,25 @@ function handleCors(req: Request) {
   return null;
 }
 
+// Función para validar variables de entorno
+function validateEnvironmentVariables() {
+  const requiredVars = {
+    AUTH0_DOMAIN: Deno.env.get('AUTH0_DOMAIN'),
+    AUTH0_MGMT_CLIENT_ID: Deno.env.get('AUTH0_MGMT_CLIENT_ID'),
+    AUTH0_MGMT_CLIENT_SECRET: Deno.env.get('AUTH0_MGMT_CLIENT_SECRET')
+  };
+
+  const missingVars = Object.entries(requiredVars)
+    .filter(([_, value]) => !value)
+    .map(([key, _]) => key);
+
+  if (missingVars.length > 0) {
+    throw new Error(`Variables de entorno faltantes: ${missingVars.join(', ')}. Por favor configura estas variables en tu proyecto de Supabase.`);
+  }
+
+  return requiredVars;
+}
+
 // Función principal
 Deno.serve(async (req) => {
   // Manejar CORS
@@ -35,11 +54,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validar variables de entorno
+    const envVars = validateEnvironmentVariables();
+
     // Inicializar cliente de Auth0 Management API
     const auth0 = new ManagementClient({
-      domain: Deno.env.get('AUTH0_DOMAIN') || '',
-      clientId: Deno.env.get('AUTH0_MGMT_CLIENT_ID') || '',
-      clientSecret: Deno.env.get('AUTH0_MGMT_CLIENT_SECRET') || '',
+      domain: envVars.AUTH0_DOMAIN,
+      clientId: envVars.AUTH0_MGMT_CLIENT_ID,
+      clientSecret: envVars.AUTH0_MGMT_CLIENT_SECRET,
       scope: 'read:users read:user_idp_tokens read:roles'
     });
 
