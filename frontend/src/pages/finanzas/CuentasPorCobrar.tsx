@@ -36,10 +36,11 @@ import { FacturaModal } from '../../components/finanzas/FacturaModal';
 import { ClienteModal } from '../../components/finanzas/ClienteModal';
 import { PagoModal } from '../../components/finanzas/PagoModal';
 import { ResumenCuentasPorCobrar } from '../../components/finanzas/ResumenCuentasPorCobrar';
+import { PermissionGuard } from '../../components/PermissionGuard';
 
 function CuentasPorCobrar() {
   const { empresaActual, paisActual, formatearMoneda } = useSesion();
-  const { usuario } = useAuth();
+  const { hasPermission } = useAuth();
   
   // Hook personalizado para manejo de cuentas por cobrar
   const {
@@ -439,13 +440,15 @@ function CuentasPorCobrar() {
                 <p className="text-gray-600 mb-6">
                   Comience creando su primera factura para gestionar las cuentas por cobrar.
                 </p>
-                <button
-                  onClick={handleNuevaFactura}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nueva Factura
-                </button>
+                <PermissionGuard requiredPermission="finanzas:write">
+                  <button
+                    onClick={handleNuevaFactura}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nueva Factura
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
           ) : (
@@ -558,29 +561,41 @@ function CuentasPorCobrar() {
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            {factura.estado !== 'PAGADA' && factura.estado !== 'ANULADA' && (
+                            
+                            {/* Botón de pago - Solo visible con permiso de escritura */}
+                            <PermissionGuard requiredPermission="finanzas:write">
+                              {factura.estado !== 'PAGADA' && factura.estado !== 'ANULADA' && (
+                                <button
+                                  onClick={() => handleRegistrarPago(factura)}
+                                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                                  title="Registrar pago"
+                                >
+                                  <DollarSign className="h-4 w-4" />
+                                </button>
+                              )}
+                            </PermissionGuard>
+                            
+                            {/* Botón de edición - Solo visible con permiso de escritura */}
+                            <PermissionGuard requiredPermission="finanzas:write">
                               <button
-                                onClick={() => handleRegistrarPago(factura)}
-                                className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                                title="Registrar pago"
+                                onClick={() => handleEditarFactura(factura)}
+                                className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                                title="Editar"
                               >
-                                <DollarSign className="h-4 w-4" />
+                                <Edit className="h-4 w-4" />
                               </button>
-                            )}
-                            <button
-                              onClick={() => handleEditarFactura(factura)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
-                              title="Editar"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEliminarFactura(factura)}
-                              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            </PermissionGuard>
+                            
+                            {/* Botón de eliminación - Solo visible con permiso de escritura */}
+                            <PermissionGuard requiredPermission="finanzas:write">
+                              <button
+                                onClick={() => handleEliminarFactura(factura)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                                title="Eliminar"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </PermissionGuard>
                           </div>
                         </td>
                       </tr>
@@ -621,20 +636,23 @@ function CuentasPorCobrar() {
             </div>
           </div>
           <div className="flex space-x-3">
-            <button
-              onClick={() => setShowClienteModal(true)}
-              className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-            >
-              <Users className="h-5 w-5" />
-              Nuevo Cliente
-            </button>
-            <button
-              onClick={handleNuevaFactura}
-              className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Nueva Factura
-            </button>
+            {/* Botones de acción - Solo visibles con permiso de escritura */}
+            <PermissionGuard requiredPermission="finanzas:write">
+              <button
+                onClick={() => setShowClienteModal(true)}
+                className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Users className="h-5 w-5" />
+                Nuevo Cliente
+              </button>
+              <button
+                onClick={handleNuevaFactura}
+                className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Nueva Factura
+              </button>
+            </PermissionGuard>
           </div>
         </div>
       </div>

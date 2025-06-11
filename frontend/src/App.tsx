@@ -6,6 +6,7 @@ import { Layout } from './components/layout/Layout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { FirebaseAuthService } from './config/firebaseAuth';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Lazy load components to improve performance
 const PlanCuentas = React.lazy(() =>
@@ -132,21 +133,89 @@ const AppRoutes: React.FC = () => {
         }>
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/contabilidad/plan-cuentas" element={<PlanCuentas />} />
-            <Route path="/contabilidad/asientos" element={<AsientosContables />} />
-            <Route path="/contabilidad/mayor" element={<LibroMayor />} />
-            <Route path="/contabilidad/balance-comprobacion" element={<BalanceComprobacion />} />
-            <Route path="/finanzas/cuentas-cobrar" element={<CuentasPorCobrar />} />
-            <Route path="/finanzas/cuentas-pagar" element={<CuentasPorPagar />} />
-            <Route path="/finanzas/tesoreria" element={<Tesoreria />} />
-            <Route path="/finanzas/conciliacion" element={<ConciliacionBancaria />} />
-            <Route path="/reportes/balance-general" element={<div className="p-6"><h1 className="text-2xl font-bold">Balance General</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>} />
-            <Route path="/reportes/estado-resultados" element={<div className="p-6"><h1 className="text-2xl font-bold">Estado de Resultados</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>} />
-            <Route path="/reportes/flujo-efectivo" element={<div className="p-6"><h1 className="text-2xl font-bold">Flujo de Efectivo</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>} />
-            <Route path="/admin/empresas" element={<GestionEmpresas />} />
-            <Route path="/admin/usuarios" element={<GestionUsuarios />} />
-            <Route path="/admin/configuracion" element={<GestionNomencladores />} />
-            <Route path="/admin/configuracion-mapeo" element={<ConfiguracionMapeoArchivos />} />
+            
+            {/* Rutas de Contabilidad */}
+            <Route path="/contabilidad/plan-cuentas" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <PlanCuentas />
+              </ProtectedRoute>
+            } />
+            <Route path="/contabilidad/asientos" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <AsientosContables />
+              </ProtectedRoute>
+            } />
+            <Route path="/contabilidad/mayor" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <LibroMayor />
+              </ProtectedRoute>
+            } />
+            <Route path="/contabilidad/balance-comprobacion" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <BalanceComprobacion />
+              </ProtectedRoute>
+            } />
+            
+            {/* Rutas de Finanzas */}
+            <Route path="/finanzas/cuentas-cobrar" element={
+              <ProtectedRoute requiredPermission="finanzas:read">
+                <CuentasPorCobrar />
+              </ProtectedRoute>
+            } />
+            <Route path="/finanzas/cuentas-pagar" element={
+              <ProtectedRoute requiredPermission="finanzas:read">
+                <CuentasPorPagar />
+              </ProtectedRoute>
+            } />
+            <Route path="/finanzas/tesoreria" element={
+              <ProtectedRoute requiredPermission="finanzas:read">
+                <Tesoreria />
+              </ProtectedRoute>
+            } />
+            <Route path="/finanzas/conciliacion" element={
+              <ProtectedRoute requiredPermission="finanzas:read">
+                <ConciliacionBancaria />
+              </ProtectedRoute>
+            } />
+            
+            {/* Rutas de Reportes */}
+            <Route path="/reportes/balance-general" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <div className="p-6"><h1 className="text-2xl font-bold">Balance General</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+              </ProtectedRoute>
+            } />
+            <Route path="/reportes/estado-resultados" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <div className="p-6"><h1 className="text-2xl font-bold">Estado de Resultados</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+              </ProtectedRoute>
+            } />
+            <Route path="/reportes/flujo-efectivo" element={
+              <ProtectedRoute requiredPermission="contabilidad:read">
+                <div className="p-6"><h1 className="text-2xl font-bold">Flujo de Efectivo</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+              </ProtectedRoute>
+            } />
+            
+            {/* Rutas de Administración */}
+            <Route path="/admin/empresas" element={
+              <ProtectedRoute requiredPermission="empresas:read">
+                <GestionEmpresas />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/usuarios" element={
+              <ProtectedRoute requiredPermission="usuarios:read">
+                <GestionUsuarios />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/configuracion" element={
+              <ProtectedRoute requiredPermission="empresas:read">
+                <GestionNomencladores />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/configuracion-mapeo" element={
+              <ProtectedRoute requiredPermission="empresas:read">
+                <ConfiguracionMapeoArchivos />
+              </ProtectedRoute>
+            } />
             
             {/* Rutas para el manual de usuario */}
             <Route path="/manuales/*" element={<ManualRouter />} />
