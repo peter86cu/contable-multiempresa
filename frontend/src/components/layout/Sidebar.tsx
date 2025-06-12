@@ -246,6 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                           
                           // Si no tiene permiso, no mostrar el subítem
                           if (!tienePermisoSub) {
+                            console.log(`❌ SIDEBAR - Subítem ${subItem.title} - No tiene permiso, ocultando`);
                             return null;
                           }
                           
