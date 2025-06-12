@@ -33,7 +33,7 @@ import { NotificationModal } from '../../components/common/NotificationModal';
 import { Auth0UsersService } from '../../services/auth0/users';
 
 export const GestionEmpresas: React.FC = () => {
-  const { usuario, tienePermiso, formatearMoneda } = useSesion();
+  const { usuario: loggedInUser, tienePermiso, formatearMoneda } = useSesion();
   
   // Estados principales
   const [empresas, setEmpresas] = useState<Empresa[]>([]);
@@ -100,9 +100,9 @@ export const GestionEmpresas: React.FC = () => {
       console.log('🔄 Iniciando carga de datos...');
       
       const [empresasData, paisesData] = await Promise.all([
-        usuario?.rol === 'super_admin' 
+        loggedInUser?.rol === 'super_admin' 
           ? EmpresasService.getEmpresasByPais('') // Todas las empresas
-          : EmpresasService.getEmpresasByUsuario(usuario?.id || ''),
+          : EmpresasService.getEmpresasByUsuario(loggedInUser?.id || ''),
         PaisesService.getPaisesActivos()
       ]);
 
@@ -150,7 +150,7 @@ export const GestionEmpresas: React.FC = () => {
       if (modalType === 'create') {
         await EmpresasService.crearEmpresa({
           ...formData,
-          usuariosAsignados: [usuario?.id || ''],
+          usuariosAsignados: [loggedInUser?.id || ''],
           configuracionContable: {
             ejercicioFiscal: new Date().getFullYear(),
             fechaInicioEjercicio: new Date(new Date().getFullYear(), 0, 1),
@@ -168,7 +168,7 @@ export const GestionEmpresas: React.FC = () => {
           },
           activa: true,
           fechaCreacion: new Date()
-        }, usuario?.id || '');
+        }, loggedInUser?.id || '');
         
         showSuccess('Empresa creada', `La empresa "${formData.nombre}" ha sido creada exitosamente.`);
       } else if (modalType === 'edit' && selectedEmpresa) {
@@ -381,7 +381,7 @@ export const GestionEmpresas: React.FC = () => {
       <div className="flex items-center justify-center h-64">
         <div className="text-center max-w-md">
           <div className="bg-red-100 rounded-full p-6 w-24 h-24 mx-auto mb-4 flex items-center justify-center">
-            <AlertCircle className="h-12 w-12 text-red-600" />
+            <AlertTriangle className="h-12 w-12 text-red-600" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Error al cargar empresas</h3>
           <p className="text-gray-600 mb-4">{error}</p>
@@ -1005,8 +1005,8 @@ export const GestionEmpresas: React.FC = () => {
                               <button 
                                 className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                                 onClick={() => handleDesasignarUsuario(usuario.id)}
-                                disabled={removingUser === usuario.id || usuario.id === usuarioActual?.id} // No permitir desasignarse a sí mismo
-                                title={usuario.id === usuarioActual?.id ? "No puedes desasignarte a ti mismo" : "Desasignar usuario"}
+                                disabled={removingUser === usuario.id || usuario.id === loggedInUser?.id} // No permitir desasignarse a sí mismo
+                                title={usuario.id === loggedInUser?.id ? "No puedes desasignarte a ti mismo" : "Desasignar usuario"}
                               >
                                 {removingUser === usuario.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
