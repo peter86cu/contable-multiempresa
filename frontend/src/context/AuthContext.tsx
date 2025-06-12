@@ -53,14 +53,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
           // Obtener permisos y rol desde los metadatos de Auth0
-          // Buscar en múltiples ubicaciones posibles
-          console.log('🔍 Buscando permisos en:', auth0User);
+          // Buscar en app_metadata primero, que es donde Auth0 guarda esta información
+          console.log('🔍 Buscando metadatos en:', auth0User);
           
-          // Buscar permisos en diferentes ubicaciones
-          let permisos = auth0User['https://contaempresa.com/permisos'] || 
-                        auth0User.app_metadata?.permisos || 
-                        auth0User.user_metadata?.permisos ||
-                        auth0User['permisos'];
+          // Obtener rol directamente de app_metadata
+          let rol = auth0User.app_metadata?.rol;
+          
+          // Si no se encuentra en app_metadata, buscar en otros lugares
+          if (!rol) {
+            rol = auth0User['https://contaempresa.com/rol'] || 
+                 auth0User.user_metadata?.rol ||
+                 auth0User['rol'] ||
+                 'usuario';
+          }
+          
+          console.log('👤 Rol encontrado:', rol);
+          
+          // Obtener permisos directamente de app_metadata
+          let permisos = auth0User.app_metadata?.permisos;
+          
+          // Si no se encuentran en app_metadata, buscar en otros lugares
+          if (!permisos) {
+            permisos = auth0User['https://contaempresa.com/permisos'] || 
+                      auth0User.user_metadata?.permisos ||
+                      auth0User['permisos'] ||
+                      ['contabilidad:read'];
+          }
           
           // Verificar si permisos es un string (puede ocurrir con Auth0)
           if (typeof permisos === 'string') {
@@ -72,33 +90,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           }
           
-          // Si no se encuentran permisos, usar valor por defecto
-          if (!permisos) {
-            console.warn('⚠️ No se encontraron permisos, usando valor por defecto: [\'contabilidad:read\']');
-            permisos = ['contabilidad:read'];
-          }
-          
           console.log('🔑 Permisos encontrados:', permisos);
           
-          // Buscar rol en diferentes ubicaciones
-          let rol = auth0User['https://contaempresa.com/rol'] || 
-                   auth0User.app_metadata?.rol || 
-                   auth0User.user_metadata?.rol ||
-                   auth0User['rol'];
+          // Obtener empresas asignadas directamente de app_metadata
+          let empresasAsignadas = auth0User.app_metadata?.empresas;
           
-          // Si no se encuentra rol, usar valor por defecto
-          if (!rol) {
-            console.warn('⚠️ No se encontró rol, usando valor por defecto: usuario');
-            rol = 'usuario';
+          // Si no se encuentran en app_metadata, buscar en otros lugares
+          if (!empresasAsignadas) {
+            empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
+                               auth0User.user_metadata?.empresas ||
+                               auth0User['empresas'] ||
+                               ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
           }
-          
-          console.log('👤 Rol encontrado:', rol);
-          
-          // Buscar empresas asignadas en diferentes ubicaciones
-          let empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
-                                 auth0User.app_metadata?.empresas || 
-                                 auth0User.user_metadata?.empresas ||
-                                 auth0User['empresas'];
           
           // Verificar si empresasAsignadas es un string (puede ocurrir con Auth0)
           if (typeof empresasAsignadas === 'string') {
@@ -108,12 +111,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               // Si no es un JSON válido, convertirlo a array
               empresasAsignadas = [empresasAsignadas];
             }
-          }
-          
-          // Si no se encuentran empresas asignadas, usar valor por defecto
-          if (!empresasAsignadas) {
-            console.warn('⚠️ No se encontraron empresas asignadas, usando valor por defecto: [\'dev-empresa-pe\', \'dev-empresa-co\', \'dev-empresa-mx\']');
-            empresasAsignadas = ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
           }
           
           console.log('🏢 Empresas asignadas encontradas:', empresasAsignadas);
