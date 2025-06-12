@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -15,8 +15,7 @@ import {
   FileBarChart,
   ArrowLeftRight,
   X,
-  Database,
-  Shield
+  Database
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -33,13 +32,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
+  // Verificar si el usuario tiene el permiso admin:all
+  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
+  
   // Agregar logs para depuración
   console.log("🔍 SIDEBAR - Usuario:", usuario);
   console.log("🔑 SIDEBAR - Permisos del usuario:", usuario?.permisos);
-  console.log("🔑 SIDEBAR - Usuario tiene admin:all:", usuario?.permisos?.includes('admin:all') || false);
-
-  // Verificar si el usuario tiene el permiso admin:all
-  const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
+  console.log("🔑 SIDEBAR - Usuario tiene admin:all:", hasAdminAll);
 
   const menuItems = [
     {
@@ -239,14 +238,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
                           
-                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
-                          console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub}`);
-                          
                           // Si no tiene permiso, no mostrar el subítem
                           if (!tienePermisoSub) {
-                            console.log(`❌ SIDEBAR - Subítem ${subItem.title} - No tiene permiso, ocultando`);
                             return null;
                           }
+                          
+                          console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
+                          console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub}`);
                           
                           return (
                             <NavLink

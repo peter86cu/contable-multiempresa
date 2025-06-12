@@ -53,65 +53,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
           // Obtener permisos y rol desde los metadatos de Auth0
-          // Buscar en app_metadata primero, que es donde Auth0 guarda esta información
+          // Buscar en múltiples ubicaciones posibles
           console.log('🔍 Buscando metadatos en:', auth0User);
           
-          // Obtener rol directamente de app_metadata
-          let rol = auth0User.app_metadata?.rol;
-          
-          // Si no se encuentra en app_metadata, buscar en otros lugares
-          if (!rol) {
-            rol = auth0User['https://contaempresa.com/rol'] || 
-                 auth0User.user_metadata?.rol ||
-                 auth0User['rol'] ||
-                 'usuario';
-          }
+          // Buscar rol en app_metadata primero, luego en otras ubicaciones
+          const rol = auth0User.app_metadata?.rol || 
+                     auth0User['https://contaempresa.com/rol'] || 
+                     auth0User.user_metadata?.rol ||
+                     auth0User['rol'] ||
+                     'usuario';
           
           console.log('👤 Rol encontrado:', rol);
           
-          // Obtener permisos directamente de app_metadata
-          let permisos = auth0User.app_metadata?.permisos;
+          // Buscar permisos en app_metadata primero, luego en otras ubicaciones
+          let permisos: string[] = [];
           
-          // Si no se encuentran en app_metadata, buscar en otros lugares
-          if (!permisos) {
-            permisos = auth0User['https://contaempresa.com/permisos'] || 
-                      auth0User.user_metadata?.permisos ||
-                      auth0User['permisos'] ||
-                      ['contabilidad:read'];
+          // Si tiene app_metadata.permisos, usarlos
+          if (auth0User.app_metadata?.permisos) {
+            permisos = auth0User.app_metadata.permisos;
+          } 
+          // Si no, buscar en otras ubicaciones
+          else if (auth0User['https://contaempresa.com/permisos']) {
+            permisos = auth0User['https://contaempresa.com/permisos'];
           }
-          
-          // Verificar si permisos es un string (puede ocurrir con Auth0)
-          if (typeof permisos === 'string') {
-            try {
-              permisos = JSON.parse(permisos);
-            } catch (e) {
-              // Si no es un JSON válido, convertirlo a array
-              permisos = [permisos];
+          else if (auth0User.user_metadata?.permisos) {
+            permisos = auth0User.user_metadata.permisos;
+          }
+          else if (auth0User['permisos']) {
+            permisos = auth0User['permisos'];
+          }
+          // Si no se encuentran permisos, asignar según el rol
+          else {
+            // Si el rol es admin_empresa o super_admin, agregar admin:all
+            if (rol === 'admin_empresa' || rol === 'super_admin') {
+              permisos = ['admin:all'];
+            } else if (rol === 'contador') {
+              permisos = ['contabilidad:read', 'contabilidad:write', 'finanzas:read'];
+            } else {
+              permisos = ['contabilidad:read'];
             }
           }
           
           console.log('🔑 Permisos encontrados:', permisos);
           
-          // Obtener empresas asignadas directamente de app_metadata
-          let empresasAsignadas = auth0User.app_metadata?.empresas;
-          
-          // Si no se encuentran en app_metadata, buscar en otros lugares
-          if (!empresasAsignadas) {
-            empresasAsignadas = auth0User['https://contaempresa.com/empresas'] || 
-                               auth0User.user_metadata?.empresas ||
-                               auth0User['empresas'] ||
-                               ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
+          // Si el rol es admin_empresa o super_admin y no tiene admin:all, agregarlo
+          if ((rol === 'admin_empresa' || rol === 'super_admin') && !permisos.includes('admin:all')) {
+            permisos.push('admin:all');
+            console.log('🔑 Agregado admin:all por rol de administrador');
           }
           
-          // Verificar si empresasAsignadas es un string (puede ocurrir con Auth0)
-          if (typeof empresasAsignadas === 'string') {
-            try {
-              empresasAsignadas = JSON.parse(empresasAsignadas);
-            } catch (e) {
-              // Si no es un JSON válido, convertirlo a array
-              empresasAsignadas = [empresasAsignadas];
-            }
-          }
+          // Buscar empresas asignadas en app_metadata primero, luego en otras ubicaciones
+          const empresasAsignadas = auth0User.app_metadata?.empresas || 
+                                   auth0User['https://contaempresa.com/empresas'] || 
+                                   auth0User.user_metadata?.empresas ||
+                                   auth0User['empresas'] ||
+                                   ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
           
           console.log('🏢 Empresas asignadas encontradas:', empresasAsignadas);
           
@@ -185,12 +181,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Si tiene admin:all, tiene todos los permisos
     if (usuario.permisos.includes('admin:all')) {
-      console.log(`🔍 Verificando permiso ${permiso}: ✅ Sí (tiene admin:all)`);
-      console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);
+      console.log(`✅ Permiso ${permiso} concedido por admin:all`);
       return true;
     }
     
-    // Verificar si tiene el permiso específico
     const tienePermiso = usuario.permisos.includes(permiso);
     console.log(`🔍 Verificando permiso ${permiso}: ${tienePermiso ? '✅ Sí' : '❌ No'}`);
     console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);
