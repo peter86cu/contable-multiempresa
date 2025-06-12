@@ -36,14 +36,14 @@ class EmpresasFirebaseService {
     }
   }
 
-  // Obtener empresas por usuario - MODIFICADO: Ahora devuelve TODAS las empresas sin filtrar por usuario
+  // Obtener empresas por usuario
   async getEmpresasByUsuario(usuarioId: string): Promise<Empresa[]> {
     try {
-      console.log('🔄 Obteniendo TODAS las empresas disponibles');
+      console.log('🔄 Obteniendo empresas para usuario:', usuarioId);
       
-      // Obtener todas las empresas sin filtrar por usuario
+      // Obtener todas las empresas
       const empresasRef = collection(db, this.collectionName);
-      const q = query(empresasRef, orderBy('nombre'));
+      const q = query(empresasRef, where('usuariosAsignados', 'array-contains', usuarioId));
       
       const querySnapshot = await getDocs(q);
       
@@ -54,7 +54,7 @@ class EmpresasFirebaseService {
         fechaActualizacion: doc.data().fechaActualizacion?.toDate()
       })) as Empresa[];
       
-      console.log(`✅ Se encontraron ${empresas.length} empresas en total`);
+      console.log(`✅ Se encontraron ${empresas.length} empresas para el usuario ${usuarioId}`);
       
       return empresas;
     } catch (error) {

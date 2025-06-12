@@ -1,7 +1,7 @@
 import { Empresa, Usuario, ConfiguracionContable } from '../../types';
 import { empresasFirebaseService } from '../firebase/empresas';
 import { SeedDataEmpresasService } from '../firebase/seedDataEmpresas';
-import { FirebaseAuthService } from '../firebase/firebaseAuth';
+import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { Auth0UsersService } from '../auth0/users';
 
 export class EmpresasService {
@@ -22,7 +22,7 @@ export class EmpresasService {
         await SeedDataEmpresasService.insertEmpresasPrueba();
       }
       
-      // Obtener TODAS las empresas desde Firebase sin filtrar por usuario
+      // Obtener empresas desde Firebase filtrando por usuario
       const empresas = await empresasFirebaseService.getEmpresasByUsuario(usuarioId);
       console.log('✅ Empresas cargadas desde Firebase:', empresas.length);
       
@@ -96,6 +96,29 @@ export class EmpresasService {
       
       const empresaId = await empresasFirebaseService.crearEmpresa(empresa);
       console.log('✅ Empresa creada con ID:', empresaId);
+      
+      // Actualizar el usuario en Auth0 para añadir la empresa a su lista
+      try {
+        // Obtener usuario actual
+        const usuario = await Auth0UsersService.getUserByEmail(usuarioCreadorId);
+        if (usuario) {
+          // Obtener empresas actuales
+          const empresasActuales = usuario.empresasAsignadas || [];
+          
+          // Añadir nueva empresa si no está ya
+          if (!empresasActuales.includes(empresaId)) {
+            const empresasActualizadas = [...empresasActuales, empresaId];
+            
+            // Actualizar usuario en Auth0
+            await Auth0UsersService.updateUser(usuario.id, {
+              empresas: empresasActualizadas
+            });
+          }
+        }
+      } catch (authError) {
+        console.warn('⚠️ No se pudo actualizar el usuario en Auth0:', authError);
+        // Continuar aunque falle la actualización en Auth0
+      }
       
       return empresaId;
     } catch (error) {
