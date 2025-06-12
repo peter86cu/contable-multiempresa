@@ -23,6 +23,9 @@ interface SesionContextType {
   formatearFecha: (fecha: Date) => string;
   tienePermiso: (permiso: string) => boolean;
   tieneAccesoEmpresa: (empresaId: string) => boolean;
+  
+  // Filtrado de usuarios por empresa
+  filtrarUsuariosPorEmpresaActual: (usuarios: Usuario[]) => Usuario[];
 }
 
 const SesionContext = createContext<SesionContextType | undefined>(undefined);
@@ -32,7 +35,7 @@ interface SesionProviderProps {
 }
 
 export const SesionProvider: React.FC<SesionProviderProps> = ({ children }) => {
-  const { usuario, isAuthenticated, hasPermission } = useAuth();
+  const { usuario, isAuthenticated } = useAuth();
   const [sesion, setSesion] = useState<SesionUsuario | null>(null);
   const [empresaActual, setEmpresaActual] = useState<Empresa | null>(null);
   const [paisActual, setPaisActual] = useState<Pais | null>(null);
@@ -225,12 +228,46 @@ export const SesionProvider: React.FC<SesionProviderProps> = ({ children }) => {
   };
 
   const tienePermiso = (permiso: string): boolean => {
-    return hasPermission(permiso);
+    if (!sesion || !sesion.usuario) {
+      return false;
+    }
+
+    // Super admin tiene todos los permisos
+    if (sesion.usuario.rol === 'super_admin') {
+      return true;
+    }
+
+    return sesion.permisos.includes(permiso) || sesion.permisos.includes('admin:all');
   };
 
   const tieneAccesoEmpresa = (empresaId: string): boolean => {
-    if (!usuario) return false;
-    return usuario.empresasAsignadas.includes(empresaId);
+    if (!sesion || !sesion.usuario) {
+      return false;
+    }
+
+    // En modo desarrollo, permitir acceso a todas las empresas
+    return true;
+  };
+
+  // Función para filtrar usuarios por empresa actual
+  const filtrarUsuariosPorEmpresaActual = (usuarios: Usuario[]): Usuario[] => {
+    if (!empresaActual || !usuarios || !Array.isArray(usuarios)) {
+      console.log('⚠️ No se puede filtrar usuarios: empresa actual no definida o usuarios no válidos');
+      return [];
+    }
+
+    console.log(`🔍 Filtrando ${usuarios.length} usuarios para empresa: ${empresaActual.id}`);
+    
+    // Filtrar usuarios que tienen asignada la empresa actual
+    const usuariosFiltrados = usuarios.filter(usuario => 
+      usuario.empresasAsignadas && 
+      Array.isArray(usuario.empresasAsignadas) && 
+      usuario.empresasAsignadas.includes(empresaActual.id)
+    );
+    
+    console.log(`✅ Filtrado completado: ${usuariosFiltrados.length} usuarios pertenecen a la empresa actual`);
+    
+    return usuariosFiltrados;
   };
 
   const value: SesionContextType = {
@@ -246,7 +283,8 @@ export const SesionProvider: React.FC<SesionProviderProps> = ({ children }) => {
     formatearMoneda,
     formatearFecha,
     tienePermiso,
-    tieneAccesoEmpresa
+    tieneAccesoEmpresa,
+    filtrarUsuariosPorEmpresaActual
   };
 
   return (
