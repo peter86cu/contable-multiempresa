@@ -22,7 +22,13 @@ import {
   RefreshCw,
   Users,
   Receipt,
-  Loader2
+  Loader2,
+  Shield,
+  Key,
+  X,
+  Save,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import { useSesion } from '../../context/SesionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -43,6 +49,7 @@ import {
   getPermisosPorRol 
 } from '@/services/auth0/roles';
 import { Auth0UsersService } from '@/services/auth0/users';
+import { RolesPermisosList } from '../../components/admin/RolesPermisosList';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
