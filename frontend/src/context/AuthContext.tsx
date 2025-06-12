@@ -74,8 +74,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Si no se encuentran permisos, usar valor por defecto
           if (!permisos) {
-            console.warn('⚠️ No se encontraron permisos, usando valor por defecto: [\'admin:all\']');
-            permisos = ['admin:all'];
+            console.warn('⚠️ No se encontraron permisos, usando valor por defecto: [\'contabilidad:read\']');
+            permisos = ['contabilidad:read'];
           }
           
           console.log('🔑 Permisos encontrados:', permisos);
@@ -88,8 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Si no se encuentra rol, usar valor por defecto
           if (!rol) {
-            console.warn('⚠️ No se encontró rol, usando valor por defecto: super_admin');
-            rol = 'super_admin';
+            console.warn('⚠️ No se encontró rol, usando valor por defecto: usuario');
+            rol = 'usuario';
           }
           
           console.log('👤 Rol encontrado:', rol);
