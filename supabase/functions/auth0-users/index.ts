@@ -273,10 +273,13 @@ Deno.serve(async (req) => {
       // Obtener la URL y método de la solicitud
       const url = new URL(req.url);
       const method = req.method;
-      const path = url.pathname.split('/').filter(Boolean);
+      const pathSegments = url.pathname.split('/').filter(Boolean);
+      
+      // Calcular la longitud efectiva del path (restando '/functions/v1/auth0-users')
+      const effectivePathLength = Math.max(0, pathSegments.length - 3);
       
       // Manejar diferentes endpoints y métodos con datos mock
-      if (method === 'GET' && path.length === 0) {
+      if (method === 'GET' && effectivePathLength === 0) {
         // Devolver lista de usuarios mock
         const mockUsers = getMockUsers();
         
@@ -304,9 +307,9 @@ Deno.serve(async (req) => {
             } 
           }
         );
-      } else if (method === 'GET' && path.length === 1) {
+      } else if (method === 'GET' && effectivePathLength === 1) {
         // Devolver usuario específico mock
-        const userId = path[0];
+        const userId = pathSegments[pathSegments.length - 1];
         const mockUsers = getMockUsers();
         const mockUser = mockUsers.find(u => u.user_id === userId) || mockUsers[0];
         
@@ -333,7 +336,7 @@ Deno.serve(async (req) => {
             } 
           }
         );
-      } else if (method === 'POST' && path.length === 0) {
+      } else if (method === 'POST' && effectivePathLength === 0) {
         // Simular creación de usuario
         const body = await req.json();
         const mockUser = {
@@ -424,12 +427,15 @@ Deno.serve(async (req) => {
     // Obtener la URL y método de la solicitud
     const url = new URL(req.url);
     const method = req.method;
-    const path = url.pathname.split('/').filter(Boolean);
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    
+    // Calcular la longitud efectiva del path (restando '/functions/v1/auth0-users')
+    const effectivePathLength = Math.max(0, pathSegments.length - 3);
     
     // Manejar diferentes endpoints y métodos
     if (method === 'GET') {
       // Obtener usuarios
-      if (path.length === 0) {
+      if (effectivePathLength === 0) {
         try {
           // Obtener parámetros de consulta
           const page = parseInt(url.searchParams.get('page') || '0');
@@ -502,9 +508,9 @@ Deno.serve(async (req) => {
         }
       } 
       // Obtener usuario específico
-      else if (path.length === 1) {
+      else if (effectivePathLength === 1) {
         try {
-          const userId = path[0];
+          const userId = pathSegments[pathSegments.length - 1];
           console.log(`Obteniendo usuario específico: ${userId}`);
           
           // Verificar si el userId está codificado
@@ -556,7 +562,7 @@ Deno.serve(async (req) => {
           
           // Devolver usuario mock en caso de error
           const mockUsers = getMockUsers();
-          const userId = path[0];
+          const userId = pathSegments[pathSegments.length - 1];
           const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
           
           // Buscar por ID exacto o por ID parcial (sin el prefijo auth0|)
@@ -593,7 +599,7 @@ Deno.serve(async (req) => {
       }
     } 
     // Crear usuario
-    else if (method === 'POST' && path.length === 0) {
+    else if (method === 'POST' && effectivePathLength === 0) {
       try {
         const body = await req.json();
         
@@ -657,9 +663,9 @@ Deno.serve(async (req) => {
       }
     } 
     // Actualizar usuario
-    else if (method === 'PATCH' && path.length === 1) {
+    else if (method === 'PATCH' && effectivePathLength === 1) {
       try {
-        const userId = path[0];
+        const userId = pathSegments[pathSegments.length - 1];
         const body = await req.json();
         
         // Verificar si el userId está codificado
@@ -691,7 +697,7 @@ Deno.serve(async (req) => {
         console.error('Error actualizando usuario:', error);
         
         // Simular actualización en caso de error
-        const userId = path[0];
+        const userId = pathSegments[pathSegments.length - 1];
         const body = await req.json();
         
         // Buscar usuario mock
@@ -739,9 +745,9 @@ Deno.serve(async (req) => {
       }
     } 
     // Eliminar usuario
-    else if (method === 'DELETE' && path.length === 1) {
+    else if (method === 'DELETE' && effectivePathLength === 1) {
       try {
-        const userId = path[0];
+        const userId = pathSegments[pathSegments.length - 1];
         
         // Verificar si el userId está codificado
         const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
