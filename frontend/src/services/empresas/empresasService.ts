@@ -2,6 +2,7 @@ import { Empresa, Usuario, ConfiguracionContable } from '../../types';
 import { empresasFirebaseService } from '../firebase/empresas';
 import { SeedDataEmpresasService } from '../firebase/seedDataEmpresas';
 import { FirebaseAuthService } from '../firebase/firebaseAuth';
+import { Auth0UsersService } from '../auth0/users';
 
 export class EmpresasService {
   // Obtener empresas por usuario (cargando desde Firebase)
@@ -143,6 +144,29 @@ export class EmpresasService {
       const usuariosAsignados = [...empresa.usuariosAsignados, usuarioId];
       await empresasFirebaseService.actualizarEmpresa(empresaId, { usuariosAsignados });
       
+      // También actualizar el usuario en Auth0 para añadir la empresa a su lista
+      try {
+        // Obtener usuario actual
+        const usuario = await Auth0UsersService.getUserByEmail(usuarioId);
+        if (usuario) {
+          // Obtener empresas actuales
+          const empresasActuales = usuario.empresasAsignadas || [];
+          
+          // Añadir nueva empresa si no está ya
+          if (!empresasActuales.includes(empresaId)) {
+            const empresasActualizadas = [...empresasActuales, empresaId];
+            
+            // Actualizar usuario en Auth0
+            await Auth0UsersService.updateUser(usuario.id, {
+              empresas: empresasActualizadas
+            });
+          }
+        }
+      } catch (authError) {
+        console.warn('⚠️ No se pudo actualizar el usuario en Auth0:', authError);
+        // Continuar aunque falle la actualización en Auth0
+      }
+      
       console.log('✅ Usuario asignado exitosamente');
     } catch (error) {
       console.error('❌ Error asignando usuario:', error);
@@ -174,6 +198,27 @@ export class EmpresasService {
       const usuariosAsignados = empresa.usuariosAsignados.filter(id => id !== usuarioId);
       await empresasFirebaseService.actualizarEmpresa(empresaId, { usuariosAsignados });
       
+      // También actualizar el usuario en Auth0 para quitar la empresa de su lista
+      try {
+        // Obtener usuario actual
+        const usuario = await Auth0UsersService.getUserByEmail(usuarioId);
+        if (usuario) {
+          // Obtener empresas actuales
+          const empresasActuales = usuario.empresasAsignadas || [];
+          
+          // Quitar la empresa
+          const empresasActualizadas = empresasActuales.filter(id => id !== empresaId);
+          
+          // Actualizar usuario en Auth0
+          await Auth0UsersService.updateUser(usuario.id, {
+            empresas: empresasActualizadas
+          });
+        }
+      } catch (authError) {
+        console.warn('⚠️ No se pudo actualizar el usuario en Auth0:', authError);
+        // Continuar aunque falle la actualización en Auth0
+      }
+      
       console.log('✅ Usuario desasignado exitosamente');
     } catch (error) {
       console.error('❌ Error desasignando usuario:', error);
@@ -199,53 +244,75 @@ export class EmpresasService {
     }
   }
   
-  // Obtener usuarios asignados a empresa (versión mock)
+  // Obtener usuarios asignados a empresa
   static async getUsuariosEmpresa(empresaId: string): Promise<Usuario[]> {
     try {
       console.log('🔄 Cargando usuarios de empresa:', empresaId);
       
-      // Simular delay
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Obtener empresa para obtener lista de IDs de usuarios
+      const empresa = await empresasFirebaseService.getEmpresa(empresaId);
+      if (!empresa) {
+        throw new Error('Empresa no encontrada');
+      }
       
-      // Mock de usuarios asignados
-      const usuariosMock: Usuario[] = [
-        {
-          id: 'dev-user-123',
-          nombre: 'Usuario de Desarrollo',
-          email: 'dev@contaempresa.com',
-          rol: 'super_admin', // Super admin para acceso completo
-          empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx', 'dev-empresa-ar', 'dev-empresa-cl'],
-          permisos: ['admin:all'],
-          activo: true,
-          fechaCreacion: new Date()
-        },
-        {
-          id: 'contador-001',
-          nombre: 'María González',
-          email: 'maria.gonzalez@contaempresa.com',
-          rol: 'contador',
-          empresasAsignadas: [empresaId],
-          permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
-          activo: true,
-          fechaCreacion: new Date()
-        },
-        {
-          id: 'usuario-001',
-          nombre: 'Carlos Mendoza',
-          email: 'carlos.mendoza@contaempresa.com',
-          rol: 'usuario',
-          empresasAsignadas: [empresaId],
-          permisos: ['contabilidad:read'],
-          activo: true,
-          fechaCreacion: new Date()
-        }
-      ];
+      // Obtener todos los usuarios
+      const todosUsuarios = await Auth0UsersService.getUsers();
       
-      console.log('✅ Usuarios de empresa cargados:', usuariosMock.length);
-      return usuariosMock;
+      // Filtrar solo los usuarios asignados a esta empresa
+      const usuariosAsignados = todosUsuarios.filter(usuario => 
+        empresa.usuariosAsignados.includes(usuario.id)
+      );
+      
+      console.log(`✅ Usuarios de empresa cargados: ${usuariosAsignados.length} usuarios`);
+      return usuariosAsignados;
     } catch (error) {
       console.error('❌ Error obteniendo usuarios de empresa:', error);
-      return [];
+      
+      // En caso de error, intentar devolver datos mock
+      try {
+        // Simular delay
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Mock de usuarios asignados
+        const usuariosMock: Usuario[] = [
+          {
+            id: 'dev-user-123',
+            nombre: 'Usuario de Desarrollo',
+            email: 'dev@contaempresa.com',
+            rol: 'super_admin', // Super admin para acceso completo
+            empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx', 'dev-empresa-ar', 'dev-empresa-cl'],
+            permisos: ['admin:all'],
+            activo: true,
+            fechaCreacion: new Date()
+          },
+          {
+            id: 'contador-001',
+            nombre: 'María González',
+            email: 'maria.gonzalez@contaempresa.com',
+            rol: 'contador',
+            empresasAsignadas: [empresaId],
+            permisos: ['contabilidad:read', 'contabilidad:write', 'reportes:read'],
+            activo: true,
+            fechaCreacion: new Date()
+          },
+          {
+            id: 'usuario-001',
+            nombre: 'Carlos Mendoza',
+            email: 'carlos.mendoza@contaempresa.com',
+            rol: 'usuario',
+            empresasAsignadas: [empresaId],
+            permisos: ['contabilidad:read'],
+            activo: true,
+            fechaCreacion: new Date()
+          }
+        ];
+        
+        console.log('✅ Usuarios de empresa cargados (mock):', usuariosMock.length);
+        return usuariosMock;
+      } catch (mockError) {
+        console.error('❌ Error generando datos mock:', mockError);
+        return [];
+      }
     }
   }
   

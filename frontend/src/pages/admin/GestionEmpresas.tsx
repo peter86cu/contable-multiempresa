@@ -18,7 +18,7 @@ import {
   Calendar,
   DollarSign,
   Loader2,
-  AlertCircle,
+  AlertTriangle,
   CheckCircle,
   ChevronLeft,
   ChevronRight
@@ -30,6 +30,7 @@ import { useSesion } from '../../context/SesionContext';
 import { useModals } from '../../hooks/useModals';
 import { ConfirmModal } from '../../components/common/ConfirmModal';
 import { NotificationModal } from '../../components/common/NotificationModal';
+import { Auth0UsersService } from '../../services/auth0/users';
 
 export const GestionEmpresas: React.FC = () => {
   const { usuario, tienePermiso, formatearMoneda } = useSesion();
@@ -49,10 +50,14 @@ export const GestionEmpresas: React.FC = () => {
   const [modalType, setModalType] = useState<'create' | 'edit' | 'view' | 'users'>('create');
   const [selectedEmpresa, setSelectedEmpresa] = useState<Empresa | null>(null);
   const [usuariosEmpresa, setUsuariosEmpresa] = useState<Usuario[]>([]);
+  const [todosUsuarios, setTodosUsuarios] = useState<Usuario[]>([]);
+  const [usuariosDisponibles, setUsuariosDisponibles] = useState<Usuario[]>([]);
   
   // Estados de loading para operaciones específicas
   const [savingForm, setSavingForm] = useState(false);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [assigningUser, setAssigningUser] = useState(false);
+  const [removingUser, setRemovingUser] = useState<string | null>(null);
 
   // Estados para paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -228,13 +233,103 @@ export const GestionEmpresas: React.FC = () => {
   const cargarUsuariosEmpresa = async (empresaId: string) => {
     try {
       setLoadingUsers(true);
+      
+      // Cargar usuarios asignados a la empresa
       const usuarios = await EmpresasService.getUsuariosEmpresa(empresaId);
       setUsuariosEmpresa(usuarios);
+      
+      // Cargar todos los usuarios para poder asignar nuevos
+      const todosLosUsuarios = await Auth0UsersService.getUsers();
+      setTodosUsuarios(todosLosUsuarios);
+      
+      // Filtrar usuarios disponibles (los que no están asignados a la empresa)
+      const usuariosAsignadosIds = new Set(usuarios.map(u => u.id));
+      const disponibles = todosLosUsuarios.filter(u => !usuariosAsignadosIds.has(u.id));
+      setUsuariosDisponibles(disponibles);
+      
+      console.log(`Usuarios asignados: ${usuarios.length}, Usuarios disponibles: ${disponibles.length}`);
     } catch (error) {
       console.error('Error cargando usuarios de empresa:', error);
       showError('Error al cargar usuarios', 'No se pudieron cargar los usuarios de la empresa');
     } finally {
       setLoadingUsers(false);
+    }
+  };
+
+  const handleAsignarUsuario = async (usuarioId: string) => {
+    if (!selectedEmpresa) return;
+    
+    try {
+      setAssigningUser(true);
+      
+      // Buscar el usuario seleccionado
+      const usuario = todosUsuarios.find(u => u.id === usuarioId);
+      if (!usuario) {
+        throw new Error('Usuario no encontrado');
+      }
+      
+      // Asignar usuario a la empresa
+      await EmpresasService.asignarUsuario(selectedEmpresa.id, usuarioId);
+      
+      // Actualizar listas de usuarios
+      setUsuariosEmpresa([...usuariosEmpresa, usuario]);
+      setUsuariosDisponibles(usuariosDisponibles.filter(u => u.id !== usuarioId));
+      
+      showSuccess('Usuario asignado', `El usuario ${usuario.nombre} ha sido asignado a la empresa exitosamente.`);
+    } catch (error) {
+      console.error('Error asignando usuario:', error);
+      showError(
+        'Error al asignar usuario',
+        error instanceof Error ? error.message : 'Error desconocido al asignar el usuario'
+      );
+    } finally {
+      setAssigningUser(false);
+    }
+  };
+
+  const handleDesasignarUsuario = async (usuarioId: string) => {
+    if (!selectedEmpresa) return;
+    
+    try {
+      setRemovingUser(usuarioId);
+      
+      // Buscar el usuario seleccionado
+      const usuario = usuariosEmpresa.find(u => u.id === usuarioId);
+      if (!usuario) {
+        throw new Error('Usuario no encontrado');
+      }
+      
+      // Confirmar desasignación
+      confirmDelete(
+        `desasignar al usuario ${usuario.nombre}`,
+        async () => {
+          try {
+            // Desasignar usuario de la empresa
+            await EmpresasService.desasignarUsuario(selectedEmpresa.id, usuarioId);
+            
+            // Actualizar listas de usuarios
+            setUsuariosEmpresa(usuariosEmpresa.filter(u => u.id !== usuarioId));
+            setUsuariosDisponibles([...usuariosDisponibles, usuario]);
+            
+            showSuccess('Usuario desasignado', `El usuario ${usuario.nombre} ha sido desasignado de la empresa exitosamente.`);
+          } catch (error) {
+            console.error('Error desasignando usuario:', error);
+            showError(
+              'Error al desasignar usuario',
+              error instanceof Error ? error.message : 'Error desconocido al desasignar el usuario'
+            );
+          } finally {
+            setRemovingUser(null);
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error desasignando usuario:', error);
+      showError(
+        'Error al desasignar usuario',
+        error instanceof Error ? error.message : 'Error desconocido al desasignar el usuario'
+      );
+      setRemovingUser(null);
     }
   };
 
@@ -841,12 +936,37 @@ export const GestionEmpresas: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h4 className="text-lg font-medium text-gray-900">
-                      Usuarios Asignados
+                      Usuarios Asignados a {selectedEmpresa.nombre}
                     </h4>
-                    <button className="flex items-center space-x-2 px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm">
-                      <UserPlus className="h-4 w-4" />
-                      <span>Asignar Usuario</span>
-                    </button>
+                    <div className="relative">
+                      <select
+                        className="appearance-none bg-blue-600 text-white px-4 py-2 pr-8 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAsignarUsuario(e.target.value);
+                            e.target.value = ''; // Reset select after selection
+                          }
+                        }}
+                        disabled={assigningUser || usuariosDisponibles.length === 0}
+                        value=""
+                      >
+                        <option value="" disabled>
+                          {assigningUser 
+                            ? 'Asignando usuario...' 
+                            : usuariosDisponibles.length === 0 
+                              ? 'No hay usuarios disponibles' 
+                              : 'Asignar usuario...'}
+                        </option>
+                        {usuariosDisponibles.map(usuario => (
+                          <option key={usuario.id} value={usuario.id}>
+                            {usuario.nombre} ({usuario.email})
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-white">
+                        <UserPlus className="h-4 w-4" />
+                      </div>
+                    </div>
                   </div>
                   
                   {loadingUsers ? (
@@ -856,38 +976,64 @@ export const GestionEmpresas: React.FC = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {usuariosEmpresa.map((usuario) => (
-                        <div key={usuario.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Users className="h-4 w-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{usuario.nombre}</p>
-                              <p className="text-xs text-gray-500">{usuario.email}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                              {usuario.rol === 'super_admin' ? 'Super Admin' :
-                               usuario.rol === 'admin_empresa' ? 'Admin' :
-                               usuario.rol === 'contador' ? 'Contador' : 'Usuario'}
-                            </span>
-                            <button className="text-red-600 hover:text-red-900">
-                              <UserMinus className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {usuariosEmpresa.length === 0 && (
+                      {usuariosEmpresa.length === 0 ? (
                         <div className="text-center py-8">
                           <Users className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                           <p className="text-gray-500">No hay usuarios asignados a esta empresa</p>
+                          <p className="text-sm text-gray-400 mt-1">
+                            Asigna usuarios utilizando el selector de arriba
+                          </p>
                         </div>
+                      ) : (
+                        usuariosEmpresa.map((usuario) => (
+                          <div key={usuario.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                <Users className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{usuario.nombre}</p>
+                                <p className="text-xs text-gray-500">{usuario.email}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs bg-gray-200 text-gray-700 px-2 py-1 rounded">
+                                {usuario.rol === 'super_admin' ? 'Super Admin' :
+                                 usuario.rol === 'admin_empresa' ? 'Admin' :
+                                 usuario.rol === 'contador' ? 'Contador' : 'Usuario'}
+                              </span>
+                              <button 
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                                onClick={() => handleDesasignarUsuario(usuario.id)}
+                                disabled={removingUser === usuario.id || usuario.id === usuarioActual?.id} // No permitir desasignarse a sí mismo
+                                title={usuario.id === usuarioActual?.id ? "No puedes desasignarte a ti mismo" : "Desasignar usuario"}
+                              >
+                                {removingUser === usuario.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <UserMinus className="h-4 w-4" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ))
                       )}
                     </div>
                   )}
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex justify-between items-center">
+                      <div className="text-sm text-gray-500">
+                        {usuariosEmpresa.length} usuarios asignados
+                      </div>
+                      <button
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
