@@ -32,7 +32,7 @@ interface SesionProviderProps {
 }
 
 export const SesionProvider: React.FC<SesionProviderProps> = ({ children }) => {
-  const { usuario, isAuthenticated } = useAuth();
+  const { usuario, isAuthenticated, hasPermission } = useAuth();
   const [sesion, setSesion] = useState<SesionUsuario | null>(null);
   const [empresaActual, setEmpresaActual] = useState<Empresa | null>(null);
   const [paisActual, setPaisActual] = useState<Pais | null>(null);
@@ -225,25 +225,12 @@ export const SesionProvider: React.FC<SesionProviderProps> = ({ children }) => {
   };
 
   const tienePermiso = (permiso: string): boolean => {
-    if (!sesion || !sesion.usuario) {
-      return false;
-    }
-
-    // Super admin tiene todos los permisos
-    if (sesion.usuario.rol === 'super_admin') {
-      return true;
-    }
-
-    return sesion.permisos.includes(permiso) || sesion.permisos.includes('admin:all');
+    return hasPermission(permiso);
   };
 
   const tieneAccesoEmpresa = (empresaId: string): boolean => {
-    if (!sesion || !sesion.usuario) {
-      return false;
-    }
-
-    // En modo desarrollo, permitir acceso a todas las empresas
-    return true;
+    if (!usuario) return false;
+    return usuario.empresasAsignadas.includes(empresaId);
   };
 
   const value: SesionContextType = {

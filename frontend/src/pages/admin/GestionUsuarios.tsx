@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Plus, 
   Search, 
@@ -46,10 +46,9 @@ import {
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
-  const { empresaActual, filtrarUsuariosPorEmpresaActual } = useSesion();
+  const { empresaActual } = useSesion();
   
   const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [usuariosFiltrados, setUsuariosFiltrados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRol, setSelectedRol] = useState<string>('');
@@ -63,7 +62,6 @@ export const GestionUsuarios: React.FC = () => {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   // Hook para modales
   const {
@@ -89,19 +87,17 @@ export const GestionUsuarios: React.FC = () => {
     verificarConexionAuth0();
   }, [empresaActual]);
 
-  // Efecto para filtrar usuarios cuando cambia la empresa actual
+  // Efecto para inicializar empresas en el formulario cuando cambia la empresa actual
   useEffect(() => {
-    if (usuarios && Array.isArray(usuarios)) {
-      // Filtrar usuarios por empresa actual
-      const filtrados = filtrarUsuariosPorEmpresaActual(usuarios);
-      setUsuariosFiltrados(filtrados);
-      
-      console.log(`🔍 Usuarios filtrados por empresa actual: ${filtrados.length} de ${usuarios.length} usuarios`);
-    } else {
-      console.log('⚠️ No hay usuarios para filtrar o no son un array');
-      setUsuariosFiltrados([]);
+    if (empresaActual) {
+      setFormData(prev => ({
+        ...prev,
+        empresas: prev.empresas.includes(empresaActual.id) 
+          ? prev.empresas 
+          : [...prev.empresas, empresaActual.id]
+      }));
     }
-  }, [usuarios, empresaActual, filtrarUsuariosPorEmpresaActual]);
+  }, [empresaActual]);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -137,13 +133,6 @@ export const GestionUsuarios: React.FC = () => {
         query: searchTerm ? `email:*${searchTerm}* OR name:*${searchTerm}*` : undefined
       });
       
-      // Verificar que usuariosData sea un array
-      if (!Array.isArray(usuariosData)) {
-        console.error('Error: usuariosData no es un array', usuariosData);
-        setUsuarios([]);
-        return [];
-      }
-      
       // Actualizar estado
       if (reset) {
         setUsuarios(usuariosData);
@@ -162,7 +151,6 @@ export const GestionUsuarios: React.FC = () => {
         'Error al cargar usuarios',
         error instanceof Error ? error.message : 'Error desconocido'
       );
-      setUsuarios([]);
       return [];
     } finally {
       setLoadingUsers(false);
@@ -198,19 +186,18 @@ export const GestionUsuarios: React.FC = () => {
     }
   };
 
-  // Aplicar filtros a los usuarios ya filtrados por empresa
-  const getUsuariosFiltrados = () => {
-    if (!usuariosFiltrados || !Array.isArray(usuariosFiltrados)) {
-      return [];
-    }
+  const filteredUsuarios = usuarios.filter(usuario => {
+    const matchesSearch = usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         usuario.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesRol = !selectedRol || usuario.rol === selectedRol;
     
-    return usuariosFiltrados.filter(usuario => {
-      const matchesSearch = usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           usuario.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesRol = !selectedRol || usuario.rol === selectedRol;
-      return matchesSearch && matchesRol;
-    });
-  };
+    // Filtrar por empresa actual si existe
+    const matchesEmpresa = !empresaActual || 
+                          (usuario.empresasAsignadas && 
+                           usuario.empresasAsignadas.includes(empresaActual.id));
+    
+    return matchesSearch && matchesRol && matchesEmpresa;
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,17 +211,16 @@ export const GestionUsuarios: React.FC = () => {
     }
     
     try {
-      setIsCreatingUser(true);
-      
-      // Asegurarse de que la empresa actual esté incluida en las empresas asignadas
-      const empresasAsignadas = [...formData.empresas];
-      if (empresaActual && !empresasAsignadas.includes(empresaActual.id)) {
-        empresasAsignadas.push(empresaActual.id);
-      }
-      
       if (modalType === 'create' || modalType === 'invite') {
+        // Asegurarse de que la empresa actual esté incluida en las empresas asignadas
+        const empresasAsignadas = empresaActual 
+          ? formData.empresas.includes(empresaActual.id) 
+            ? formData.empresas 
+            : [...formData.empresas, empresaActual.id]
+          : formData.empresas;
+        
         // Crear usuario en Auth0
-        const result = await Auth0UsersService.createUser({
+        await Auth0UsersService.createUser({
           email: formData.email,
           password: formData.generatePassword ? generateRandomPassword() : formData.password,
           name: formData.nombre,
@@ -244,24 +230,19 @@ export const GestionUsuarios: React.FC = () => {
         });
         
         showSuccess('Usuario creado', 'El usuario ha sido creado exitosamente');
-        
-        // Recargar usuarios
-        await cargarUsuarios();
       } else if (modalType === 'edit' && selectedUser) {
         // Actualizar usuario en Auth0
         await Auth0UsersService.updateUser(selectedUser.id, {
           name: formData.nombre,
           rol: formData.rol,
           permisos: formData.permisos,
-          empresas: empresasAsignadas
+          empresas: formData.empresas
         });
         
         showSuccess('Usuario actualizado', 'El usuario ha sido actualizado exitosamente');
-        
-        // Recargar usuarios
-        await cargarUsuarios();
       }
 
+      await cargarUsuarios();
       setShowModal(false);
       resetForm();
     } catch (error) {
@@ -270,13 +251,11 @@ export const GestionUsuarios: React.FC = () => {
         'Error al guardar usuario',
         error instanceof Error ? error.message : 'Error desconocido'
       );
-    } finally {
-      setIsCreatingUser(false);
     }
   };
 
   const resetForm = () => {
-    // Inicializar con la empresa actual si está disponible
+    // Inicializar con la empresa actual si existe
     const empresasIniciales = empresaActual ? [empresaActual.id] : [];
     
     setFormData({
@@ -295,19 +274,17 @@ export const GestionUsuarios: React.FC = () => {
     setModalType(type);
     if (user) {
       setSelectedUser(user);
-      if (type === 'edit') {
-        setFormData({
-          nombre: user.nombre,
-          email: user.email,
-          rol: user.rol,
-          empresas: user.empresasAsignadas || [],
-          permisos: user.permisos,
-          password: '',
-          generatePassword: true
-        });
-      }
+      setFormData({
+        nombre: user.nombre,
+        email: user.email,
+        rol: user.rol,
+        empresas: user.empresasAsignadas || [],
+        permisos: user.permisos,
+        password: '',
+        generatePassword: true
+      });
     } else {
-      // Para nuevo usuario, inicializar con la empresa actual
+      // Para nuevo usuario, incluir la empresa actual
       resetForm();
     }
     setShowModal(true);
@@ -343,7 +320,7 @@ export const GestionUsuarios: React.FC = () => {
   const exportarUsuarios = () => {
     // Crear CSV
     const headers = ['ID', 'Nombre', 'Email', 'Rol', 'Empresas', 'Permisos', 'Fecha Creación', 'Última Conexión', 'Estado'];
-    const rows = getUsuariosFiltrados().map(u => [
+    const rows = filteredUsuarios.map(u => [
       u.id,
       u.nombre,
       u.email,
@@ -372,9 +349,6 @@ export const GestionUsuarios: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Obtener usuarios filtrados
-  const usuariosParaMostrar = getUsuariosFiltrados();
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -393,7 +367,7 @@ export const GestionUsuarios: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h1>
           <p className="text-gray-600 mt-1">
-            Administra usuarios, roles y permisos para {empresaActual?.nombre}
+            Administra usuarios, roles y permisos {empresaActual ? `para ${empresaActual.nombre}` : ''}
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
@@ -548,7 +522,7 @@ export const GestionUsuarios: React.FC = () => {
             <Users className="h-8 w-8 text-blue-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
-              <p className="text-lg font-semibold text-gray-900">{usuariosParaMostrar.length}</p>
+              <p className="text-lg font-semibold text-gray-900">{filteredUsuarios.length}</p>
             </div>
           </div>
         </div>
@@ -558,7 +532,7 @@ export const GestionUsuarios: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Administradores</p>
               <p className="text-lg font-semibold text-gray-900">
-                {usuariosParaMostrar.filter(u => u.rol === 'admin_empresa' || u.rol === 'super_admin').length}
+                {filteredUsuarios.filter(u => u.rol === 'admin_empresa' || u.rol === 'super_admin').length}
               </p>
             </div>
           </div>
@@ -569,7 +543,7 @@ export const GestionUsuarios: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Usuarios Activos</p>
               <p className="text-lg font-semibold text-gray-900">
-                {usuariosParaMostrar.filter(u => u.activo).length}
+                {filteredUsuarios.filter(u => u.activo).length}
               </p>
             </div>
           </div>
@@ -640,13 +614,8 @@ export const GestionUsuarios: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Lista de Usuarios ({usuariosParaMostrar.length})
+            Lista de Usuarios ({filteredUsuarios.length})
           </h3>
-          {empresaActual && (
-            <p className="text-sm text-gray-600 mt-1">
-              Mostrando usuarios asignados a la empresa: {empresaActual.nombre}
-            </p>
-          )}
         </div>
         
         {loadingUsers && usuarios.length === 0 ? (
@@ -656,23 +625,22 @@ export const GestionUsuarios: React.FC = () => {
               <p className="text-gray-600">Cargando usuarios...</p>
             </div>
           </div>
-        ) : usuariosParaMostrar.length === 0 ? (
+        ) : filteredUsuarios.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchTerm || selectedRol ? 'No se encontraron usuarios' : 'No hay usuarios registrados'}
+              No se encontraron usuarios
             </h3>
             <p className="text-gray-600 mb-4">
               {searchTerm || selectedRol 
                 ? 'Intenta ajustar los filtros de búsqueda'
-                : empresaActual 
-                  ? `No hay usuarios asignados a la empresa ${empresaActual.nombre}`
-                  : 'Selecciona una empresa para ver sus usuarios'
+                : 'Comienza creando tu primer usuario'
               }
             </p>
-            {!searchTerm && !selectedRol && empresaActual && (
+            {!searchTerm && !selectedRol && (
               <button
                 onClick={() => openModal('create')}
+                disabled={!auth0Connected && !import.meta.env.DEV}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 Crear Primer Usuario
@@ -681,7 +649,7 @@ export const GestionUsuarios: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -699,13 +667,13 @@ export const GestionUsuarios: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Última Conexión
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {usuariosParaMostrar.map((usuario) => (
+                {filteredUsuarios.map((usuario) => (
                   <tr key={usuario.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -742,7 +710,7 @@ export const GestionUsuarios: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         usuario.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
                         {usuario.activo ? 'Activo' : 'Inactivo'}
@@ -754,8 +722,8 @@ export const GestionUsuarios: React.FC = () => {
                         'Nunca'
                       }
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => openModal('edit', usuario)}
                           className="text-indigo-600 hover:text-indigo-900"
@@ -935,27 +903,17 @@ export const GestionUsuarios: React.FC = () => {
                   type="button"
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  disabled={isCreatingUser}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={isCreatingUser || (!auth0Connected && !import.meta.env.DEV)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed min-w-[140px]"
+                  disabled={!auth0Connected && !import.meta.env.DEV}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isCreatingUser ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Procesando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4" />
-                      {modalType === 'create' ? 'Crear Usuario' : 
-                      modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
-                    </>
-                  )}
+                  <Save className="h-4 w-4" />
+                  {modalType === 'create' ? 'Crear Usuario' : 
+                   modalType === 'edit' ? 'Guardar Cambios' : 'Enviar Invitación'}
                 </button>
               </div>
             </form>
