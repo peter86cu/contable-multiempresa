@@ -120,6 +120,18 @@ export class Auth0UsersService {
       // Si no se proporcionan permisos, usar los del rol
       const permisos = userData.permisos || PERMISOS_POR_ROL[userData.rol] || [];
 
+      // Extraer el subdominio del email si no se proporciona
+      let subdominio = userData.subdominio;
+      if (!subdominio && userData.email) {
+        const emailParts = userData.email.split('@');
+        if (emailParts.length === 2) {
+          subdominio = emailParts[1];
+        }
+      }
+
+      console.log('Creando usuario en Auth0:', userData.email);
+      console.log('Subdominio para el usuario:', subdominio);
+
       // Preparar datos para Auth0
       const requestData = {
         email: userData.email,
@@ -130,15 +142,13 @@ export class Auth0UsersService {
           rol: userData.rol,
           empresas: userData.empresas,
           permisos: permisos,
-          subdominio: userData.subdominio || userData.empresas[0] || ''
+          subdominio: subdominio || ''
         },
         user_metadata: {
           created_by: 'admin_panel',
           creation_date: new Date().toISOString()
         }
       };
-
-      console.log('Creando usuario en Auth0:', userData.email);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}`, {
@@ -233,6 +243,8 @@ export class Auth0UsersService {
         return { id: userId, ...userData };
       }
 
+      console.log('Actualizando usuario en Auth0:', userId);
+
       // Preparar datos para Auth0
       const requestData: any = {};
       
@@ -251,8 +263,6 @@ export class Auth0UsersService {
       if (Object.keys(appMetadata).length > 0) {
         requestData.app_metadata = appMetadata;
       }
-
-      console.log('Actualizando usuario en Auth0:', userId);
 
       // Realizar petición a la Edge Function
       const response = await fetch(`${this.baseUrl}/${userId}`, {

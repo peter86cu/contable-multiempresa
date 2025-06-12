@@ -22,27 +22,27 @@ import {
   RefreshCw,
   Users,
   Receipt,
-  Loader2,
-  Copy,
-  ExternalLink,
-  Settings,
-  Key,
-  Save,
-  X,
-  Shield
+  Loader2
 } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { useSesion } from '@/context/SesionContext';
-import { NotificationModal } from '@/components/common/NotificationModal';
-import { useModals } from '@/hooks/useModals';
-import { Auth0UsersService } from '@/services/auth0/users';
-import { RolesPermisosList } from '@/components/admin/RolesPermisosList';
+import { useSesion } from '../../context/SesionContext';
+import { useAuth } from '../../context/AuthContext';
+import { useCuentasPorCobrar } from '../../hooks/useCuentasPorCobrar';
+import { useNomencladores } from '../../hooks/useNomencladores';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
+import { NotificationModal } from '../../components/common/NotificationModal';
+import { useModals } from '../../hooks/useModals';
+import { FacturaModal } from '../../components/finanzas/FacturaModal';
+import { ClienteModal } from '../../components/finanzas/ClienteModal';
+import { PagoModal } from '../../components/finanzas/PagoModal';
+import { ResumenCuentasPorCobrar } from '../../components/finanzas/ResumenCuentasPorCobrar';
+import { PermissionGuard } from '../../components/PermissionGuard';
 import { 
   ROLES, 
   PERMISOS, 
   PERMISOS_POR_ROL, 
   getPermisosPorRol 
 } from '@/services/auth0/roles';
+import { Auth0UsersService } from '@/services/auth0/users';
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
@@ -269,6 +269,28 @@ export const GestionUsuarios: React.FC = () => {
     };
   };
 
+  // Extraer el subdominio del email
+  const extractSubdomainFromEmail = (email: string): string => {
+    try {
+      // Obtener la parte después del @ en el email
+      const parts = email.split('@');
+      if (parts.length !== 2) return '';
+      
+      const domain = parts[1];
+      
+      // Eliminar dominios comunes como gmail.com, hotmail.com, etc.
+      const commonDomains = ['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'aol.com', 'protonmail.com', 'mail.com'];
+      if (commonDomains.includes(domain.toLowerCase())) {
+        return '';
+      }
+      
+      return domain;
+    } catch (error) {
+      console.error('Error extrayendo subdominio del email:', error);
+      return '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -289,6 +311,10 @@ export const GestionUsuarios: React.FC = () => {
         empresasAsignadas.push(empresaActual.id);
       }
       
+      // Extraer subdominio del email
+      const subdominio = extractSubdomainFromEmail(formData.email);
+      console.log(`Subdominio extraído del email: ${subdominio}`);
+      
       if (modalType === 'create' || modalType === 'invite') {
         // Crear usuario en Auth0
         const result = await Auth0UsersService.createUser({
@@ -297,7 +323,8 @@ export const GestionUsuarios: React.FC = () => {
           name: formData.nombre,
           rol: formData.rol,
           empresas: empresasAsignadas,
-          permisos: formData.permisos
+          permisos: formData.permisos,
+          subdominio: subdominio // Agregar el subdominio extraído del email
         });
         
         showSuccess('Usuario creado', 'El usuario ha sido creado exitosamente');
@@ -738,7 +765,7 @@ export const GestionUsuarios: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -756,7 +783,7 @@ export const GestionUsuarios: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Última Conexión
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Acciones
                   </th>
                 </tr>
@@ -812,7 +839,7 @@ export const GestionUsuarios: React.FC = () => {
                       }
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center justify-end gap-2">
                         <button 
                           onClick={() => openModal('edit', usuario)}
                           className="text-indigo-600 hover:text-indigo-900"
@@ -911,6 +938,11 @@ export const GestionUsuarios: React.FC = () => {
                       required
                       disabled={modalType === 'edit'}
                     />
+                    {modalType === 'create' && formData.email && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Subdominio detectado: {extractSubdomainFromEmail(formData.email) || 'Ninguno'}
+                      </p>
+                    )}
                   </div>
                 </div>
 
