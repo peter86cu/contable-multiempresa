@@ -154,8 +154,29 @@ export class Auth0UsersService {
       const isMockData = response.headers.get('X-Mock-Data') === 'true';
       
       if (!response.ok && !isMockData) {
-        const error = await response.json();
-        throw new Error(`Error creando usuario en Auth0: ${error.message || response.statusText}`);
+        // Check content type before parsing response
+        const contentType = response.headers.get('Content-Type');
+        let errorMessage = response.statusText;
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || response.statusText;
+          } catch (parseError) {
+            console.warn('Failed to parse JSON error response:', parseError);
+            errorMessage = await response.text() || response.statusText;
+          }
+        } else {
+          // If not JSON, read as text
+          try {
+            errorMessage = await response.text() || response.statusText;
+          } catch (textError) {
+            console.warn('Failed to read text error response:', textError);
+            errorMessage = response.statusText;
+          }
+        }
+        
+        throw new Error(`Error creando usuario en Auth0: ${errorMessage}`);
       }
 
       const data = await response.json();
@@ -247,8 +268,29 @@ export class Auth0UsersService {
       const isMockData = response.headers.get('X-Mock-Data') === 'true';
       
       if (!response.ok && !isMockData) {
-        const error = await response.json();
-        throw new Error(`Error actualizando usuario en Auth0: ${error.message || response.statusText}`);
+        // Check content type before parsing response
+        const contentType = response.headers.get('Content-Type');
+        let errorMessage = response.statusText;
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || response.statusText;
+          } catch (parseError) {
+            console.warn('Failed to parse JSON error response:', parseError);
+            errorMessage = await response.text() || response.statusText;
+          }
+        } else {
+          // If not JSON, read as text
+          try {
+            errorMessage = await response.text() || response.statusText;
+          } catch (textError) {
+            console.warn('Failed to read text error response:', textError);
+            errorMessage = response.statusText;
+          }
+        }
+        
+        throw new Error(`Error actualizando usuario en Auth0: ${errorMessage}`);
       }
 
       const data = await response.json();
@@ -300,8 +342,29 @@ export class Auth0UsersService {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
+        // Check content type before parsing response
+        const contentType = response.headers.get('Content-Type');
+        let errorMessage = response.statusText;
+        
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const error = await response.json();
+            errorMessage = error.message || error.error || response.statusText;
+          } catch (parseError) {
+            console.warn('Failed to parse JSON error response:', parseError);
+            errorMessage = await response.text() || response.statusText;
+          }
+        } else {
+          // If not JSON, read as text
+          try {
+            errorMessage = await response.text() || response.statusText;
+          } catch (textError) {
+            console.warn('Failed to read text error response:', textError);
+            errorMessage = response.statusText;
+          }
+        }
+        
+        throw new Error(`Error eliminando usuario en Auth0: ${errorMessage}`);
       }
 
       return true;
