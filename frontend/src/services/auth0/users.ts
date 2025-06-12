@@ -278,6 +278,47 @@ export class Auth0UsersService {
   }
 
   /**
+   * Elimina un usuario en Auth0
+   * @param userId ID del usuario
+   * @returns true si se eliminó correctamente
+   */
+  static async deleteUser(userId: string) {
+    try {
+      // Verificar si estamos en modo desarrollo sin credenciales reales
+      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+        console.log('Modo desarrollo: Simulando eliminación de usuario en Auth0', userId);
+        return true;
+      }
+
+      // Realizar petición a la Edge Function
+      const response = await fetch(`${this.baseUrl}/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(`Error eliminando usuario en Auth0: ${error.message || response.statusText}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error eliminando usuario en Auth0:', error);
+      
+      // En caso de error en producción, propagar el error
+      if (!import.meta.env.DEV) {
+        throw error;
+      }
+      
+      // En desarrollo, simular éxito
+      return true;
+    }
+  }
+
+  /**
    * Datos mock para desarrollo
    */
   private static getMockUsers() {
