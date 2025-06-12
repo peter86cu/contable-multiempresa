@@ -8,7 +8,8 @@ import {
   Building2,
   Menu,
   Globe,
-  HelpCircle
+  HelpCircle,
+  Shield
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -24,6 +25,17 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
   const { empresaActual, paisActual, empresasDisponibles } = useSesion();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showHelpMenu, setShowHelpMenu] = useState(false);
+
+  // Función para obtener el nombre del rol en formato legible
+  const getRolDisplayName = (rol: string): string => {
+    switch (rol) {
+      case 'super_admin': return 'Super Admin';
+      case 'admin_empresa': return 'Admin Empresa';
+      case 'contador': return 'Contador';
+      case 'usuario': return 'Usuario';
+      default: return rol;
+    }
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 px-4 py-3">
@@ -155,10 +167,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                   <p className="text-sm font-medium text-gray-900">{usuario?.nombre}</p>
                   <p className="text-xs text-gray-500">{usuario?.email}</p>
                   <div className="flex items-center space-x-2 mt-2">
-                    <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                      {usuario?.rol === 'super_admin' ? 'Super Admin' :
-                       usuario?.rol === 'admin_empresa' ? 'Admin Empresa' :
-                       usuario?.rol === 'contador' ? 'Contador' : 'Usuario'}
+                    <span className="inline-flex items-center px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                      <Shield className="h-3 w-3 mr-1" />
+                      {usuario?.rol ? getRolDisplayName(usuario.rol) : 'Usuario'}
                     </span>
                     {paisActual && (
                       <span className="inline-block px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">
