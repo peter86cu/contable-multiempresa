@@ -780,7 +780,7 @@ export const GestionUsuarios: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRolColor(usuario.rol)}`}>
                         {usuario.rol === 'super_admin' ? 'Super Admin' : 
-                         usuario.rol === 'admin_empresa' ? 'Administrador' : 
+                         usuario.rol === 'admin_empresa' ? 'Admin' :
                          usuario.rol === 'contador' ? 'Contador' : 'Usuario'}
                       </span>
                     </td>
