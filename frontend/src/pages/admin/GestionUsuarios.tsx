@@ -212,6 +212,63 @@ export const GestionUsuarios: React.FC = () => {
     });
   };
 
+  const getErrorMessage = (error: any): { title: string; message: string } => {
+    const errorMessage = error?.message || error?.toString() || 'Error desconocido';
+    
+    // Errores de configuración Auth0
+    if (errorMessage.includes('Management API') || errorMessage.includes('client_credentials')) {
+      return {
+        title: 'Error de configuración Auth0',
+        message: 'El Auth0 Management API no está configurado correctamente. Verifica las credenciales del Management API en las variables de entorno.'
+      };
+    }
+    
+    // Errores de red/conectividad
+    if (errorMessage.includes('fetch') || errorMessage.includes('network') || errorMessage.includes('NetworkError')) {
+      return {
+        title: 'Error de conexión',
+        message: 'No se pudo conectar con Auth0. Verifica tu conexión a internet y que el dominio de Auth0 sea correcto.'
+      };
+    }
+    
+    // Errores de permisos
+    if (errorMessage.includes('insufficient_scope') || errorMessage.includes('access_denied')) {
+      return {
+        title: 'Error de permisos',
+        message: 'El Management API no tiene los permisos necesarios. Asegúrate de que tenga los scopes: read:users, create:users, update:users.'
+      };
+    }
+    
+    // Errores de validación de datos
+    if (errorMessage.includes('email') && errorMessage.includes('already exists')) {
+      return {
+        title: 'Email ya registrado',
+        message: 'Ya existe un usuario con este email. Usa un email diferente o edita el usuario existente.'
+      };
+    }
+    
+    if (errorMessage.includes('password') && errorMessage.includes('policy')) {
+      return {
+        title: 'Contraseña no válida',
+        message: 'La contraseña no cumple con las políticas de seguridad. Debe tener al menos 8 caracteres, incluir mayúsculas, minúsculas y números.'
+      };
+    }
+    
+    // Errores de función Edge
+    if (errorMessage.includes('Edge Function') || errorMessage.includes('Supabase')) {
+      return {
+        title: 'Error del servidor',
+        message: 'Error en la función de servidor. Verifica que la función Edge de Supabase esté desplegada y funcionando correctamente.'
+      };
+    }
+    
+    // Error genérico con más contexto
+    return {
+      title: 'Error al crear usuario',
+      message: `Ocurrió un error inesperado: ${errorMessage}. Si el problema persiste, contacta al administrador del sistema.`
+    };
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -266,10 +323,10 @@ export const GestionUsuarios: React.FC = () => {
       resetForm();
     } catch (error) {
       console.error('Error guardando usuario:', error);
-      showError(
-        'Error al guardar usuario',
-        error instanceof Error ? error.message : 'Error desconocido'
-      );
+      
+      // Usar la función mejorada de manejo de errores
+      const { title, message } = getErrorMessage(error);
+      showError(title, message);
     } finally {
       setIsCreatingUser(false);
     }
