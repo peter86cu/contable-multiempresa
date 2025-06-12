@@ -671,7 +671,6 @@ export const GestionUsuarios: React.FC = () => {
             {!searchTerm && !selectedRol && empresaActual && (
               <button
                 onClick={() => openModal('create')}
-                disabled={!auth0Connected && !import.meta.env.DEV}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
               >
                 Crear Primer Usuario
