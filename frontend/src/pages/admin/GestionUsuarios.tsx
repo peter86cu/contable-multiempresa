@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Plus, 
   Search, 
@@ -46,9 +46,10 @@ import {
 
 export const GestionUsuarios: React.FC = () => {
   const { usuario: usuarioActual } = useAuth();
-  const { empresaActual } = useSesion();
+  const { empresaActual, filtrarUsuariosPorEmpresaActual } = useSesion();
   
   const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [usuariosFiltrados, setUsuariosFiltrados] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRol, setSelectedRol] = useState<string>('');
@@ -88,6 +89,20 @@ export const GestionUsuarios: React.FC = () => {
     verificarConexionAuth0();
   }, [empresaActual]);
 
+  // Efecto para filtrar usuarios cuando cambia la empresa actual
+  useEffect(() => {
+    if (usuarios && Array.isArray(usuarios)) {
+      // Filtrar usuarios por empresa actual
+      const filtrados = filtrarUsuariosPorEmpresaActual(usuarios);
+      setUsuariosFiltrados(filtrados);
+      
+      console.log(`🔍 Usuarios filtrados por empresa actual: ${filtrados.length} de ${usuarios.length} usuarios`);
+    } else {
+      console.log('⚠️ No hay usuarios para filtrar o no son un array');
+      setUsuariosFiltrados([]);
+    }
+  }, [usuarios, empresaActual, filtrarUsuariosPorEmpresaActual]);
+
   const cargarDatos = async () => {
     setLoading(true);
     try {
@@ -122,6 +137,13 @@ export const GestionUsuarios: React.FC = () => {
         query: searchTerm ? `email:*${searchTerm}* OR name:*${searchTerm}*` : undefined
       });
       
+      // Verificar que usuariosData sea un array
+      if (!Array.isArray(usuariosData)) {
+        console.error('Error: usuariosData no es un array', usuariosData);
+        setUsuarios([]);
+        return [];
+      }
+      
       // Actualizar estado
       if (reset) {
         setUsuarios(usuariosData);
@@ -140,6 +162,7 @@ export const GestionUsuarios: React.FC = () => {
         'Error al cargar usuarios',
         error instanceof Error ? error.message : 'Error desconocido'
       );
+      setUsuarios([]);
       return [];
     } finally {
       setLoadingUsers(false);
@@ -175,12 +198,19 @@ export const GestionUsuarios: React.FC = () => {
     }
   };
 
-  const filteredUsuarios = usuarios.filter(usuario => {
-    const matchesSearch = usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         usuario.email?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRol = !selectedRol || usuario.rol === selectedRol;
-    return matchesSearch && matchesRol;
-  });
+  // Aplicar filtros a los usuarios ya filtrados por empresa
+  const getUsuariosFiltrados = () => {
+    if (!usuariosFiltrados || !Array.isArray(usuariosFiltrados)) {
+      return [];
+    }
+    
+    return usuariosFiltrados.filter(usuario => {
+      const matchesSearch = usuario.nombre?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           usuario.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesRol = !selectedRol || usuario.rol === selectedRol;
+      return matchesSearch && matchesRol;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,6 +226,12 @@ export const GestionUsuarios: React.FC = () => {
     try {
       setIsCreatingUser(true);
       
+      // Asegurarse de que la empresa actual esté incluida en las empresas asignadas
+      const empresasAsignadas = [...formData.empresas];
+      if (empresaActual && !empresasAsignadas.includes(empresaActual.id)) {
+        empresasAsignadas.push(empresaActual.id);
+      }
+      
       if (modalType === 'create' || modalType === 'invite') {
         // Crear usuario en Auth0
         const result = await Auth0UsersService.createUser({
@@ -203,7 +239,7 @@ export const GestionUsuarios: React.FC = () => {
           password: formData.generatePassword ? generateRandomPassword() : formData.password,
           name: formData.nombre,
           rol: formData.rol,
-          empresas: empresaActual ? [empresaActual.id] : [],
+          empresas: empresasAsignadas,
           permisos: formData.permisos
         });
         
@@ -216,7 +252,8 @@ export const GestionUsuarios: React.FC = () => {
         await Auth0UsersService.updateUser(selectedUser.id, {
           name: formData.nombre,
           rol: formData.rol,
-          permisos: formData.permisos
+          permisos: formData.permisos,
+          empresas: empresasAsignadas
         });
         
         showSuccess('Usuario actualizado', 'El usuario ha sido actualizado exitosamente');
@@ -239,11 +276,14 @@ export const GestionUsuarios: React.FC = () => {
   };
 
   const resetForm = () => {
+    // Inicializar con la empresa actual si está disponible
+    const empresasIniciales = empresaActual ? [empresaActual.id] : [];
+    
     setFormData({
       nombre: '',
       email: '',
       rol: 'usuario',
-      empresas: [],
+      empresas: empresasIniciales,
       permisos: getPermisosPorRol('usuario'),
       password: '',
       generatePassword: true
@@ -265,6 +305,7 @@ export const GestionUsuarios: React.FC = () => {
         generatePassword: true
       });
     } else {
+      // Para nuevo usuario, inicializar con la empresa actual
       resetForm();
     }
     setShowModal(true);
@@ -300,7 +341,7 @@ export const GestionUsuarios: React.FC = () => {
   const exportarUsuarios = () => {
     // Crear CSV
     const headers = ['ID', 'Nombre', 'Email', 'Rol', 'Empresas', 'Permisos', 'Fecha Creación', 'Última Conexión', 'Estado'];
-    const rows = filteredUsuarios.map(u => [
+    const rows = getUsuariosFiltrados().map(u => [
       u.id,
       u.nombre,
       u.email,
@@ -328,6 +369,9 @@ export const GestionUsuarios: React.FC = () => {
     link.click();
     document.body.removeChild(link);
   };
+
+  // Obtener usuarios filtrados
+  const usuariosParaMostrar = getUsuariosFiltrados();
 
   if (loading) {
     return (
@@ -502,7 +546,7 @@ export const GestionUsuarios: React.FC = () => {
             <Users className="h-8 w-8 text-blue-600" />
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
-              <p className="text-lg font-semibold text-gray-900">{usuarios.length}</p>
+              <p className="text-lg font-semibold text-gray-900">{usuariosParaMostrar.length}</p>
             </div>
           </div>
         </div>
@@ -512,7 +556,7 @@ export const GestionUsuarios: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Administradores</p>
               <p className="text-lg font-semibold text-gray-900">
-                {usuarios.filter(u => u.rol === 'admin_empresa' || u.rol === 'super_admin').length}
+                {usuariosParaMostrar.filter(u => u.rol === 'admin_empresa' || u.rol === 'super_admin').length}
               </p>
             </div>
           </div>
@@ -523,7 +567,7 @@ export const GestionUsuarios: React.FC = () => {
             <div className="ml-3">
               <p className="text-sm font-medium text-gray-600">Usuarios Activos</p>
               <p className="text-lg font-semibold text-gray-900">
-                {usuarios.filter(u => u.activo).length}
+                {usuariosParaMostrar.filter(u => u.activo).length}
               </p>
             </div>
           </div>
@@ -594,8 +638,13 @@ export const GestionUsuarios: React.FC = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            Lista de Usuarios ({filteredUsuarios.length})
+            Lista de Usuarios ({usuariosParaMostrar.length})
           </h3>
+          {empresaActual && (
+            <p className="text-sm text-gray-600 mt-1">
+              Mostrando usuarios asignados a la empresa: {empresaActual.nombre}
+            </p>
+          )}
         </div>
         
         {loadingUsers && usuarios.length === 0 ? (
@@ -605,7 +654,7 @@ export const GestionUsuarios: React.FC = () => {
               <p className="text-gray-600">Cargando usuarios...</p>
             </div>
           </div>
-        ) : filteredUsuarios.length === 0 ? (
+        ) : usuariosParaMostrar.length === 0 ? (
           <div className="text-center py-12">
             <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -614,10 +663,12 @@ export const GestionUsuarios: React.FC = () => {
             <p className="text-gray-600 mb-4">
               {searchTerm || selectedRol 
                 ? 'Intenta ajustar los filtros de búsqueda'
-                : 'Comienza creando tu primer usuario'
+                : empresaActual 
+                  ? `No hay usuarios asignados a la empresa ${empresaActual.nombre}`
+                  : 'Selecciona una empresa para ver sus usuarios'
               }
             </p>
-            {!searchTerm && !selectedRol && (
+            {!searchTerm && !selectedRol && empresaActual && (
               <button
                 onClick={() => openModal('create')}
                 disabled={!auth0Connected && !import.meta.env.DEV}
@@ -653,7 +704,7 @@ export const GestionUsuarios: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsuarios.map((usuario) => (
+                {usuariosParaMostrar.map((usuario) => (
                   <tr key={usuario.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
