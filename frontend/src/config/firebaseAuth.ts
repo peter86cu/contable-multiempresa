@@ -64,26 +64,26 @@ export class FirebaseAuthService {
                     resolve(true);
                   } catch (retryError) {
                     console.error('Error en reintento de autenticación anónima:', retryError);
-                    // En caso de error en el reintento, consideramos que estamos en modo desarrollo
-                    console.log('Continuando en modo desarrollo sin autenticación de Firebase');
-                    this.isAuthenticated = true; // Simular autenticación en desarrollo
-                    resolve(true);
+                    // En caso de error en el reintento, NO simular autenticación
+                    console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
+                    this.isAuthenticated = false;
+                    resolve(false);
                   }
                 }, 1500); // Esperar 1.5 segundos antes de reintentar
               } else {
-                // Para otros errores, consideramos que estamos en modo desarrollo
+                // Para otros errores, NO simular autenticación
                 console.error('Error en autenticación anónima:', authError);
-                console.log('Continuando en modo desarrollo sin autenticación de Firebase');
-                this.isAuthenticated = true; // Simular autenticación en desarrollo
-                resolve(true);
+                console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
+                this.isAuthenticated = false;
+                resolve(false);
               }
             }
           } catch (error) {
             console.error('Error en autenticación anónima:', error);
-            // En caso de error, consideramos que estamos en modo desarrollo
-            console.log('Continuando en modo desarrollo sin autenticación de Firebase');
-            this.isAuthenticated = true; // Simular autenticación en desarrollo
-            resolve(true);
+            // En caso de error, NO simular autenticación
+            console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
+            this.isAuthenticated = false;
+            resolve(false);
           }
         }
       });
