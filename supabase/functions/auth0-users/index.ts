@@ -1,3 +1,8 @@
+/**
+ * Auth0 Users Edge Function
+ * 
+ * Esta función maneja operaciones CRUD para usuarios de Auth0
+ */
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // Configuración de CORS
@@ -124,6 +129,15 @@ async function createAuth0User(domain: string, token: string, userData: any) {
     console.log('Creando usuario en Auth0:', userData.email);
     console.log('DEBUG - Datos de usuario para Auth0:', JSON.stringify(userData, null, 2));
     
+    // Asegurarse de que app_metadata esté correctamente formateado
+    if (userData.app_metadata && typeof userData.app_metadata === 'string') {
+      try {
+        userData.app_metadata = JSON.parse(userData.app_metadata);
+      } catch (e) {
+        console.error('Error al parsear app_metadata:', e);
+      }
+    }
+    
     const response = await fetch(`https://${domain}/api/v2/users`, {
       method: 'POST',
       headers: {
@@ -142,6 +156,7 @@ async function createAuth0User(domain: string, token: string, userData: any) {
 
     const user = await response.json();
     console.log('Usuario creado correctamente en Auth0:', user.user_id);
+    console.log('DEBUG - Respuesta completa de Auth0:', JSON.stringify(user, null, 2));
     return user;
   } catch (error) {
     console.error('Error creando usuario en Auth0:', error);
@@ -154,6 +169,15 @@ async function updateAuth0User(domain: string, token: string, userId: string, us
   try {
     console.log(`Actualizando usuario en Auth0: ${userId}`);
     console.log('DEBUG - Datos de actualización:', JSON.stringify(userData, null, 2));
+    
+    // Asegurarse de que app_metadata esté correctamente formateado
+    if (userData.app_metadata && typeof userData.app_metadata === 'string') {
+      try {
+        userData.app_metadata = JSON.parse(userData.app_metadata);
+      } catch (e) {
+        console.error('Error al parsear app_metadata:', e);
+      }
+    }
     
     const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
       method: 'PATCH',
@@ -173,6 +197,7 @@ async function updateAuth0User(domain: string, token: string, userId: string, us
 
     const user = await response.json();
     console.log('Usuario actualizado correctamente en Auth0');
+    console.log('DEBUG - Respuesta completa de Auth0:', JSON.stringify(user, null, 2));
     return user;
   } catch (error) {
     console.error('Error actualizando usuario en Auth0:', error);
