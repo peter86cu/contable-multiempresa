@@ -52,17 +52,17 @@ export class Auth0UsersService {
       // Ensure data is always an array
       const users = Array.isArray(data) ? data : [];
       
-      if (isMockData) {
-        console.log('Recibidos datos mock de Auth0');
-      } else {
-        console.log(`Recibidos ${users.length} usuarios de Auth0`);
-      }
-      
       // Log the first user to debug role and permissions
       if (users.length > 0) {
         console.log('DEBUG - Primer usuario recibido:', users[0]);
         console.log('DEBUG - Rol del primer usuario:', users[0].rol);
         console.log('DEBUG - Permisos del primer usuario:', users[0].permisos);
+      }
+      
+      if (isMockData) {
+        console.log('Recibidos datos mock de Auth0');
+      } else {
+        console.log(`Recibidos ${users.length} usuarios de Auth0`);
       }
       
       return users;
@@ -413,7 +413,7 @@ export class Auth0UsersService {
         email: 'admin@contaempresa.com',
         nombre: 'Administrador',
         avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=150',
-        rol: 'super_admin',
+        rol: 'admin_empresa',
         empresasAsignadas: ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'],
         permisos: ['admin:all'],
         fechaCreacion: new Date().toISOString(),

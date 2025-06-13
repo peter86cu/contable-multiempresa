@@ -13,6 +13,7 @@ import { useDashboard } from '../hooks/useDashboard';
 import { FinancialChart } from '../components/dashboard/FinancialChart';
 import { FinancialSummary } from '../components/dashboard/FinancialSummary';
 import { ActivityFeed } from '../components/dashboard/ActivityFeed';
+import { AuthDebug } from '../components/debug/AuthDebug';
 
 export const Dashboard: React.FC = () => {
   const { empresaActual, paisActual } = useSesion();
@@ -103,6 +104,9 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Auth Debug Component */}
+      <AuthDebug />
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between">
         <div>

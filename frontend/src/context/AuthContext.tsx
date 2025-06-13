@@ -53,13 +53,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
-          // Obtener permisos y rol desde los metadatos de Auth0
-          // Buscar en múltiples ubicaciones posibles
+          // SOLUCIÓN: Acceder directamente a app_metadata
           console.log('🔍 Buscando metadatos en:', auth0User);
+          
+          // Imprimir el objeto completo para depuración
+          console.log('DEBUG - Auth0 User Object:', JSON.stringify(auth0User, null, 2));
           
           // SOLUCIÓN DIRECTA: Acceder directamente a app_metadata
           let rol = 'usuario'; // Valor por defecto
-          let permisos: string[] = [];
           
           // Verificar si app_metadata existe y tiene rol
           if (auth0User.app_metadata && auth0User.app_metadata.rol) {
@@ -67,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('👤 Rol encontrado en app_metadata:', rol);
           } else {
             console.log('⚠️ No se encontró rol en app_metadata, buscando en otras ubicaciones');
+            // Buscar en otras ubicaciones
             rol = auth0User['https://contaempresa.com/rol'] || 
                   auth0User.user_metadata?.rol ||
                   auth0User['rol'] ||
@@ -76,6 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('👤 Rol encontrado:', rol);
           
           // Verificar si app_metadata existe y tiene permisos
+          let permisos: string[] = [];
           if (auth0User.app_metadata && auth0User.app_metadata.permisos) {
             permisos = auth0User.app_metadata.permisos;
             console.log('🔑 Permisos encontrados en app_metadata:', permisos);
@@ -95,6 +98,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           console.log('🔑 Permisos encontrados:', permisos);
           
+          // IMPORTANTE: Si el rol es admin_empresa o super_admin y no tiene admin:all, agregarlo
+          if ((rol === 'admin_empresa' || rol === 'super_admin') && !permisos.includes('admin:all')) {
+            permisos.push('admin:all');
+            console.log('🔑 Agregado admin:all por rol de administrador');
+          }
+          
+          // Si no hay permisos y el rol es conocido, asignar permisos por defecto según el rol
+          if (permisos.length === 0) {
+            permisos = PERMISOS_POR_ROL[rol as keyof typeof PERMISOS_POR_ROL] || [];
+            console.log('🔑 Asignados permisos por defecto según rol:', permisos);
+          }
+          
           // Buscar empresas asignadas
           let empresasAsignadas: string[] = [];
           if (auth0User.app_metadata && auth0User.app_metadata.empresas) {
@@ -106,12 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                auth0User['empresas'] ||
                                ['dev-empresa-pe', 'dev-empresa-co', 'dev-empresa-mx'];
             console.log('🏢 Empresas asignadas encontradas en otras ubicaciones:', empresasAsignadas);
-          }
-          
-          // IMPORTANTE: Si el rol es admin_empresa o super_admin y no tiene admin:all, agregarlo
-          if ((rol === 'admin_empresa' || rol === 'super_admin') && !permisos.includes('admin:all')) {
-            permisos.push('admin:all');
-            console.log('🔑 Agregado admin:all por rol de administrador');
           }
           
           // Crear usuario a partir de datos de Auth0
