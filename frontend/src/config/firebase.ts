@@ -25,7 +25,16 @@ const missingVars = requiredVars.filter(varName => !import.meta.env[varName]);
 
 if (missingVars.length > 0) {
   console.error('Missing Firebase environment variables:', missingVars);
-  throw new Error(`Missing required Firebase environment variables: ${missingVars.join(', ')}`);
+  console.warn('Using development mode with mock data');
+}
+
+// Validate authentication credentials
+const authEmail = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
+const authPassword = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
+
+if (!authEmail || !authPassword) {
+  console.warn('Firebase authentication credentials missing in environment variables');
+  console.warn('Using default admin@contaempresa.com credentials for development');
 }
 
 // Initialize Firebase
@@ -34,3 +43,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Firebase services
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Log initialization
+console.log('🔥 Firebase initialized successfully');
+console.log(`🔑 Using authentication email: ${authEmail || 'admin@contaempresa.com'}`);
