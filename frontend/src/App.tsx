@@ -73,6 +73,22 @@ const ManualRouter = React.lazy(() =>
     .then(mod => ({ default: mod.ManualRouter }))
 )
 
+// Lazy load report components
+const BalanceGeneral = React.lazy(() =>
+  import('./pages/reportes/BalanceGeneral')
+    .then(mod => ({ default: mod.BalanceGeneral }))
+)
+
+const EstadoResultados = React.lazy(() =>
+  import('./pages/reportes/EstadoResultados')
+    .then(mod => ({ default: mod.EstadoResultados }))
+)
+
+const FlujoEfectivo = React.lazy(() =>
+  import('./pages/reportes/FlujoEfectivo')
+    .then(mod => ({ default: mod.FlujoEfectivo }))
+)
+
 const AppRoutes: React.FC = () => {
   const { usuario, isLoading, isAuthenticated, error } = useAuth();
 
@@ -181,17 +197,17 @@ const AppRoutes: React.FC = () => {
             {/* Rutas de Reportes */}
             <Route path="/reportes/balance-general" element={
               <ProtectedRoute requiredPermission="contabilidad:read">
-                <div className="p-6"><h1 className="text-2xl font-bold">Balance General</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+                <BalanceGeneral />
               </ProtectedRoute>
             } />
             <Route path="/reportes/estado-resultados" element={
               <ProtectedRoute requiredPermission="contabilidad:read">
-                <div className="p-6"><h1 className="text-2xl font-bold">Estado de Resultados</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+                <EstadoResultados />
               </ProtectedRoute>
             } />
             <Route path="/reportes/flujo-efectivo" element={
               <ProtectedRoute requiredPermission="contabilidad:read">
-                <div className="p-6"><h1 className="text-2xl font-bold">Flujo de Efectivo</h1><p className="text-gray-600 mt-2">Módulo en desarrollo...</p></div>
+                <FlujoEfectivo />
               </ProtectedRoute>
             } />
             
