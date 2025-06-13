@@ -72,9 +72,11 @@ export const Login: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="bg-blue-600 p-3 rounded-full">
-              <Building2 className="h-8 w-8 text-white" />
-            </div>
+            <img 
+              src="/logo-contaempresa.png" 
+              alt="ContaEmpresa Logo" 
+              className="h-24 w-auto"
+            />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">ContaEmpresa</h1>
           <p className="text-gray-600 mt-2">Sistema de Gestión Contable</p>

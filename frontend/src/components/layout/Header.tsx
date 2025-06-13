@@ -50,7 +50,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           </button>
           
           <div className="flex items-center space-x-3">
-            <Building2 className="h-8 w-8 text-blue-600" />
+            <img 
+              src="/logo-contaempresa.png" 
+              alt="ContaEmpresa Logo" 
+              className="h-8 w-auto"
+            />
             <div>
               <h1 className="text-xl font-bold text-gray-900">ContaEmpresa</h1>
               <p className="text-xs text-gray-500">Sistema Multi-País</p>

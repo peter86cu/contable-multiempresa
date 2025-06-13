@@ -1,126 +1,123 @@
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
+import { signInWithEmailAndPassword, onAuthStateChanged, User } from 'firebase/auth';
 
 export class FirebaseAuthService {
-  private static isAuthenticated = false;
-  private static authPromise: Promise<boolean> | null = null;
+  private static currentUser: User | null = null;
+  private static authPromise: Promise<User | null> | null = null;
+  private static isInitializing: boolean = false;
 
-  // Autenticar automáticamente para operaciones
-  static async ensureAuthenticated(): Promise<boolean> {
-    try {
-      // Si ya hay una promesa de autenticación en curso, esperarla
-      if (this.authPromise) {
-        return await this.authPromise;
-      }
-
-      // Si ya está autenticado, retornar true
-      if (this.isAuthenticated && auth.currentUser) {
-        return true;
-      }
-
-      // Crear nueva promesa de autenticación
-      this.authPromise = this.performAuthentication();
-      const result = await this.authPromise;
-      this.authPromise = null;
-      
-      return result;
-    } catch (error) {
-      console.error('Error autenticando en Firebase:', error);
-      this.authPromise = null;
-      return false;
-    }
-  }
-
-  private static async performAuthentication(): Promise<boolean> {
-    return new Promise((resolve) => {
-      // Verificar si ya hay un usuario autenticado
-      const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        unsubscribe(); // Desuscribirse inmediatamente
-        
-        if (user) {
-          this.isAuthenticated = true;
-          console.log('Usuario ya autenticado en Firebase:', user.uid);
-          resolve(true);
-        } else {
-          try {
-            // Autenticación anónima para desarrollo
-            // Añadir manejo de errores y reintentos para el error de visibility-check
-            try {
-              const userCredential = await signInAnonymously(auth);
-              this.isAuthenticated = true;
-              console.log('Autenticado anónimamente en Firebase:', userCredential.user.uid);
-              resolve(true);
-            } catch (authError: any) {
-              // Comprobar si es el error específico de visibility-check
-              if (authError.code === 'auth/visibility-check-was-unavailable' || 
-                  (authError.message && authError.message.includes('visibility-check-was-unavailable'))) {
-                console.warn('Error de visibility-check en Firebase, reintentando...');
-                // Esperar un momento y reintentar
-                setTimeout(async () => {
-                  try {
-                    const userCredential = await signInAnonymously(auth);
-                    this.isAuthenticated = true;
-                    console.log('Reintento exitoso, autenticado anónimamente en Firebase:', userCredential.user.uid);
-                    resolve(true);
-                  } catch (retryError) {
-                    console.error('Error en reintento de autenticación anónima:', retryError);
-                    // En caso de error en el reintento, NO simular autenticación
-                    console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
-                    this.isAuthenticated = false;
-                    resolve(false);
-                  }
-                }, 1500); // Esperar 1.5 segundos antes de reintentar
-              } else {
-                // Para otros errores, NO simular autenticación
-                console.error('Error en autenticación anónima:', authError);
-                console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
-                this.isAuthenticated = false;
-                resolve(false);
-              }
-            }
-          } catch (error) {
-            console.error('Error en autenticación anónima:', error);
-            // En caso de error, NO simular autenticación
-            console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
-            this.isAuthenticated = false;
-            resolve(false);
-          }
-        }
-      });
-    });
-  }
-
-  // Verificar si el usuario está autenticado
-  static isUserAuthenticated(): boolean {
-    return !!auth.currentUser && this.isAuthenticated;
-  }
-
-  // Obtener el usuario actual
-  static getCurrentUser() {
-    return auth.currentUser;
-  }
-
-  // Obtener el UID del usuario actual
-  static getCurrentUserId(): string | null {
-    return auth.currentUser?.uid || null;
-  }
-
-  // Cerrar sesión
-  static async signOut(): Promise<void> {
-    try {
-      await auth.signOut();
-      this.isAuthenticated = false;
-    } catch (error) {
-      console.error('Error cerrando sesión:', error);
-    }
-  }
-
-  // Inicializar autenticación al cargar la aplicación
+  // Inicializar autenticación de Firebase al cargar la app
   static async initialize(): Promise<void> {
+    if (this.isInitializing) return;
+    
+    this.isInitializing = true;
+    console.log('🔄 Inicializando autenticación de Firebase...');
+    
     try {
       await this.ensureAuthenticated();
+      console.log('✅ Autenticación de Firebase inicializada correctamente');
     } catch (error) {
-      console.error('Error inicializando autenticación:', error);
+      console.error('❌ Error inicializando autenticación de Firebase:', error);
+    } finally {
+      this.isInitializing = false;
     }
+  }
+
+  // Ensure user is authenticated (using fixed credentials from .env)
+  static async ensureAuthenticated(): Promise<User | null> {
+    // If we already have a user, return it
+    if (this.currentUser) {
+      return this.currentUser;
+    }
+
+    // If authentication is already in progress, wait for it
+    if (this.authPromise) {
+      return this.authPromise;
+    }
+
+    // Start authentication process
+    this.authPromise = new Promise((resolve, reject) => {
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        unsubscribe(); // Clean up listener
+        
+        if (user) {
+          console.log('✅ Usuario ya autenticado en Firebase:', user.uid);
+          this.currentUser = user;
+          resolve(user);
+        } else {
+          try {
+            console.log('🔄 Iniciando sesión con credenciales fijas...');
+            
+            // Obtener credenciales del .env
+            const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
+            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
+            
+            if (!email || !password) {
+              console.error('❌ Error: Credenciales de Firebase no configuradas en .env');
+              console.log('⚠️ Usando autenticación anónima como fallback');
+              
+              // Si no hay credenciales, usar autenticación anónima como fallback
+              const { signInAnonymously } = await import('firebase/auth');
+              const userCredential = await signInAnonymously(auth);
+              this.currentUser = userCredential.user;
+              console.log('✅ Sesión anónima iniciada:', userCredential.user.uid);
+              resolve(userCredential.user);
+              return;
+            }
+            
+            // Iniciar sesión con email y contraseña
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            this.currentUser = userCredential.user;
+            console.log('✅ Sesión iniciada con credenciales fijas:', userCredential.user.uid);
+            resolve(userCredential.user);
+          } catch (error) {
+            console.error('❌ Error en autenticación con credenciales fijas:', error);
+            
+            // Si falla la autenticación con credenciales, intentar autenticación anónima
+            try {
+              console.log('⚠️ Intentando autenticación anónima como fallback...');
+              const { signInAnonymously } = await import('firebase/auth');
+              const userCredential = await signInAnonymously(auth);
+              this.currentUser = userCredential.user;
+              console.log('✅ Sesión anónima iniciada:', userCredential.user.uid);
+              resolve(userCredential.user);
+            } catch (anonError) {
+              console.error('❌ Error en autenticación anónima:', anonError);
+              reject(anonError);
+            }
+          }
+        }
+      }, reject);
+    });
+
+    try {
+      const user = await this.authPromise;
+      this.authPromise = null;
+      return user;
+    } catch (error) {
+      this.authPromise = null;
+      throw error;
+    }
+  }
+
+  // Get current user
+  static getCurrentUser(): User | null {
+    return this.currentUser;
+  }
+
+  // Get current user ID
+  static getCurrentUserId(): string | null {
+    return this.currentUser?.uid || null;
+  }
+
+  // Reset authentication state
+  static reset(): void {
+    this.currentUser = null;
+    this.authPromise = null;
+  }
+
+  // Check if user is authenticated
+  static isUserAuthenticated(): boolean {
+    return !!this.currentUser;
   }
 }
