@@ -52,8 +52,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
           <div className="flex items-center space-x-3">
             <img 
               src="/logo-contaempresa.png" 
-              alt="ContaEmpresa Logo" 
+              alt="ContaEmpresa" 
               className="h-8 w-auto"
+              onError={(e) => {
+                // Si la imagen no se puede cargar, mostrar un fallback
+                const target = e.target as HTMLImageElement;
+                target.onerror = null; // Prevenir bucle infinito
+                target.style.display = 'none';
+                // Mostrar el ícono de fallback
+                const parent = target.parentElement;
+                if (parent) {
+                  const fallback = document.createElement('div');
+                  fallback.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-blue-600"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>';
+                  parent.appendChild(fallback);
+                }
+              }}
             />
             <div>
               <h1 className="text-xl font-bold text-gray-900">ContaEmpresa</h1>

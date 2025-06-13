@@ -72,11 +72,9 @@ export const Login: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <img 
-              src="/logo-contaempresa.png" 
-              alt="ContaEmpresa Logo" 
-              className="h-24 w-auto"
-            />
+            <div className="bg-blue-600 p-3 rounded-full">
+              <Building2 className="h-8 w-8 text-white" />
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">ContaEmpresa</h1>
           <p className="text-gray-600 mt-2">Sistema de Gestión Contable</p>
@@ -339,6 +337,19 @@ export const Login: React.FC = () => {
 
         {/* Formulario */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
+          <div className="flex justify-center mb-6">
+            <img 
+              src="/logo-contaempresa.png" 
+              alt="ContaEmpresa Logo" 
+              className="h-16 object-contain"
+              onError={(e) => {
+                // Si la imagen no se puede cargar, mostrar un fallback
+                const target = e.target as HTMLImageElement;
+                target.onerror = null; // Prevenir bucle infinito
+                target.style.display = 'none';
+              }}
+            />
+          </div>
           <div className="space-y-6">
             <button
               onClick={handleLogin}
@@ -497,6 +508,7 @@ export const Login: React.FC = () => {
                 <p>• Dominio personalizado: {configInfo.isCustomDomain ? '✅' : '❌'}</p>
                 <p>• Dominio problemático: {isProblematicDomain ? '❌' : '✅'}</p>
                 <p>• Error 403: {is403Error ? '❌' : '✅'}</p>
+                <p>• Firebase Auth Email: {import.meta.env.VITE_FIREBASE_AUTH_EMAIL ? '✅' : '❌'}</p>
               </div>
             </div>
           )}

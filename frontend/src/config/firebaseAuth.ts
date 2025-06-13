@@ -1,130 +1,123 @@
+import { signInWithEmailAndPassword, onAuthStateChanged, signInAnonymously, User } from 'firebase/auth';
 import { auth } from './firebase';
-import { signInWithEmailAndPassword, onAuthStateChanged, User } from 'firebase/auth';
 
 export class FirebaseAuthService {
   private static currentUser: User | null = null;
   private static authPromise: Promise<User | null> | null = null;
-  private static isInitializing: boolean = false;
+  private static isInitialized = false;
 
-  // Inicializar autenticación de Firebase al cargar la app
-  static async initialize(): Promise<void> {
-    if (this.isInitializing) return;
-    
-    this.isInitializing = true;
-    console.log('🔄 Inicializando autenticación de Firebase...');
-    
+  // Autenticar con credenciales fijas desde variables de entorno
+  static async ensureAuthenticated(): Promise<boolean> {
     try {
-      await this.ensureAuthenticated();
-      console.log('✅ Autenticación de Firebase inicializada correctamente');
+      // Si ya hay una promesa de autenticación en curso, esperarla
+      if (this.authPromise) {
+        await this.authPromise;
+        return !!this.currentUser;
+      }
+
+      // Si ya está autenticado, retornar true
+      if (this.currentUser) {
+        return true;
+      }
+
+      // Crear nueva promesa de autenticación
+      this.authPromise = this.performAuthentication();
+      const result = await this.authPromise;
+      this.authPromise = null;
+      
+      return !!result;
     } catch (error) {
-      console.error('❌ Error inicializando autenticación de Firebase:', error);
-    } finally {
-      this.isInitializing = false;
+      console.error('Error autenticando en Firebase:', error);
+      this.authPromise = null;
+      return false;
     }
   }
 
-  // Ensure user is authenticated (using fixed credentials from .env)
-  static async ensureAuthenticated(): Promise<User | null> {
-    // If we already have a user, return it
-    if (this.currentUser) {
-      return this.currentUser;
-    }
-
-    // If authentication is already in progress, wait for it
-    if (this.authPromise) {
-      return this.authPromise;
-    }
-
-    // Start authentication process
-    this.authPromise = new Promise((resolve, reject) => {
-      // Obtener credenciales del .env
-      const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
-      const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
-      
-      if (!email || !password) {
-        console.error('❌ Error: Credenciales de Firebase no configuradas en .env');
-        reject(new Error('Credenciales de Firebase no configuradas'));
-        return;
-      }
-      
-      // Primero verificar si ya hay un usuario autenticado
+  private static async performAuthentication(): Promise<User | null> {
+    return new Promise((resolve) => {
+      // Verificar si ya hay un usuario autenticado
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        unsubscribe(); // Clean up listener
+        unsubscribe(); // Desuscribirse inmediatamente
         
         if (user) {
-          // Verificar si el usuario autenticado es el usuario fijo
-          if (user.email === email) {
-            console.log('✅ Usuario fijo ya autenticado en Firebase:', user.uid);
-            this.currentUser = user;
-            resolve(user);
-          } else {
-            // Si hay otro usuario autenticado, cerrar sesión y autenticar con el usuario fijo
-            console.log('⚠️ Usuario diferente autenticado, cambiando al usuario fijo...');
-            try {
-              await auth.signOut();
-              this.authenticateWithFixedCredentials(email, password, resolve, reject);
-            } catch (error) {
-              console.error('❌ Error al cerrar sesión:', error);
-              reject(error);
-            }
-          }
+          this.currentUser = user;
+          console.log('✅ Usuario ya autenticado en Firebase:', user.uid);
+          resolve(user);
         } else {
-          // No hay usuario autenticado, autenticar con el usuario fijo
-          this.authenticateWithFixedCredentials(email, password, resolve, reject);
+          try {
+            // Intentar autenticar con credenciales fijas
+            const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
+            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
+            
+            if (email && password) {
+              console.log('🔄 Autenticando con credenciales fijas...');
+              try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                this.currentUser = userCredential.user;
+                console.log('✅ Autenticado con credenciales fijas:', userCredential.user.uid);
+                resolve(userCredential.user);
+              } catch (authError) {
+                console.error('❌ Error en autenticación con credenciales fijas:', authError);
+                
+                // Si falla la autenticación con credenciales, intentar con anónimo como fallback
+                console.log('🔄 Intentando autenticación anónima como fallback...');
+                const anonCredential = await signInAnonymously(auth);
+                this.currentUser = anonCredential.user;
+                console.log('✅ Autenticado anónimamente (fallback):', anonCredential.user.uid);
+                resolve(anonCredential.user);
+              }
+            } else {
+              // Si no hay credenciales configuradas, usar autenticación anónima
+              console.log('⚠️ No hay credenciales configuradas, usando autenticación anónima');
+              const userCredential = await signInAnonymously(auth);
+              this.currentUser = userCredential.user;
+              console.log('✅ Autenticado anónimamente:', userCredential.user.uid);
+              resolve(userCredential.user);
+            }
+          } catch (error) {
+            console.error('❌ Error en autenticación:', error);
+            this.currentUser = null;
+            resolve(null);
+          }
         }
-      }, (error) => {
-        console.error('❌ Error en onAuthStateChanged:', error);
-        reject(error);
       });
     });
-
-    try {
-      const user = await this.authPromise;
-      this.authPromise = null;
-      return user;
-    } catch (error) {
-      this.authPromise = null;
-      throw error;
-    }
   }
 
-  // Autenticar con credenciales fijas
-  private static async authenticateWithFixedCredentials(
-    email: string, 
-    password: string, 
-    resolve: (user: User) => void, 
-    reject: (error: any) => void
-  ): Promise<void> {
-    try {
-      console.log('🔄 Iniciando sesión con credenciales fijas...');
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      this.currentUser = userCredential.user;
-      console.log('✅ Sesión iniciada con credenciales fijas:', userCredential.user.uid);
-      resolve(userCredential.user);
-    } catch (error) {
-      console.error('❌ Error en autenticación con credenciales fijas:', error);
-      reject(error);
-    }
+  // Verificar si el usuario está autenticado
+  static isUserAuthenticated(): boolean {
+    return !!this.currentUser;
   }
 
-  // Get current user
+  // Obtener el usuario actual
   static getCurrentUser(): User | null {
     return this.currentUser;
   }
 
-  // Get current user ID
+  // Obtener el UID del usuario actual
   static getCurrentUserId(): string | null {
     return this.currentUser?.uid || null;
   }
 
-  // Reset authentication state
-  static reset(): void {
-    this.currentUser = null;
-    this.authPromise = null;
+  // Cerrar sesión
+  static async signOut(): Promise<void> {
+    try {
+      await auth.signOut();
+      this.currentUser = null;
+    } catch (error) {
+      console.error('Error cerrando sesión:', error);
+    }
   }
 
-  // Check if user is authenticated
-  static isUserAuthenticated(): boolean {
-    return !!this.currentUser;
+  // Inicializar autenticación al cargar la aplicación
+  static async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+    
+    try {
+      await this.ensureAuthenticated();
+      this.isInitialized = true;
+    } catch (error) {
+      console.error('Error inicializando autenticación:', error);
+    }
   }
 }
