@@ -96,7 +96,8 @@ export class Auth0UsersService {
         return this.getMockUsers();
       }
       
-      throw error;
+      // En producción, devolver array vacío para evitar errores de filtrado
+      return [];
     }
   }
 
