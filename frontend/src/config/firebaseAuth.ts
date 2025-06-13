@@ -37,57 +37,45 @@ export class FirebaseAuthService {
 
     // Start authentication process
     this.authPromise = new Promise((resolve, reject) => {
+      // Obtener credenciales del .env
+      const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
+      const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
+      
+      if (!email || !password) {
+        console.error('❌ Error: Credenciales de Firebase no configuradas en .env');
+        reject(new Error('Credenciales de Firebase no configuradas'));
+        return;
+      }
+      
+      // Primero verificar si ya hay un usuario autenticado
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
         unsubscribe(); // Clean up listener
         
         if (user) {
-          console.log('✅ Usuario ya autenticado en Firebase:', user.uid);
-          this.currentUser = user;
-          resolve(user);
-        } else {
-          try {
-            console.log('🔄 Iniciando sesión con credenciales fijas...');
-            
-            // Obtener credenciales del .env
-            const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL;
-            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD;
-            
-            if (!email || !password) {
-              console.error('❌ Error: Credenciales de Firebase no configuradas en .env');
-              console.log('⚠️ Usando autenticación anónima como fallback');
-              
-              // Si no hay credenciales, usar autenticación anónima como fallback
-              const { signInAnonymously } = await import('firebase/auth');
-              const userCredential = await signInAnonymously(auth);
-              this.currentUser = userCredential.user;
-              console.log('✅ Sesión anónima iniciada:', userCredential.user.uid);
-              resolve(userCredential.user);
-              return;
-            }
-            
-            // Iniciar sesión con email y contraseña
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            this.currentUser = userCredential.user;
-            console.log('✅ Sesión iniciada con credenciales fijas:', userCredential.user.uid);
-            resolve(userCredential.user);
-          } catch (error) {
-            console.error('❌ Error en autenticación con credenciales fijas:', error);
-            
-            // Si falla la autenticación con credenciales, intentar autenticación anónima
+          // Verificar si el usuario autenticado es el usuario fijo
+          if (user.email === email) {
+            console.log('✅ Usuario fijo ya autenticado en Firebase:', user.uid);
+            this.currentUser = user;
+            resolve(user);
+          } else {
+            // Si hay otro usuario autenticado, cerrar sesión y autenticar con el usuario fijo
+            console.log('⚠️ Usuario diferente autenticado, cambiando al usuario fijo...');
             try {
-              console.log('⚠️ Intentando autenticación anónima como fallback...');
-              const { signInAnonymously } = await import('firebase/auth');
-              const userCredential = await signInAnonymously(auth);
-              this.currentUser = userCredential.user;
-              console.log('✅ Sesión anónima iniciada:', userCredential.user.uid);
-              resolve(userCredential.user);
-            } catch (anonError) {
-              console.error('❌ Error en autenticación anónima:', anonError);
-              reject(anonError);
+              await auth.signOut();
+              this.authenticateWithFixedCredentials(email, password, resolve, reject);
+            } catch (error) {
+              console.error('❌ Error al cerrar sesión:', error);
+              reject(error);
             }
           }
+        } else {
+          // No hay usuario autenticado, autenticar con el usuario fijo
+          this.authenticateWithFixedCredentials(email, password, resolve, reject);
         }
-      }, reject);
+      }, (error) => {
+        console.error('❌ Error en onAuthStateChanged:', error);
+        reject(error);
+      });
     });
 
     try {
@@ -97,6 +85,25 @@ export class FirebaseAuthService {
     } catch (error) {
       this.authPromise = null;
       throw error;
+    }
+  }
+
+  // Autenticar con credenciales fijas
+  private static async authenticateWithFixedCredentials(
+    email: string, 
+    password: string, 
+    resolve: (user: User) => void, 
+    reject: (error: any) => void
+  ): Promise<void> {
+    try {
+      console.log('🔄 Iniciando sesión con credenciales fijas...');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      this.currentUser = userCredential.user;
+      console.log('✅ Sesión iniciada con credenciales fijas:', userCredential.user.uid);
+      resolve(userCredential.user);
+    } catch (error) {
+      console.error('❌ Error en autenticación con credenciales fijas:', error);
+      reject(error);
     }
   }
 

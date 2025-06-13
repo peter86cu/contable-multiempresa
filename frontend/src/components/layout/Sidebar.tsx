@@ -244,7 +244,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                           }
                           
                           console.log(`🔍 SIDEBAR - Evaluando subítem: ${subItem.title}, permiso: ${subItem.permiso}`);
-                          console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub}`);
+                          console.log(`🔑 SIDEBAR - Subítem ${subItem.title} - Tiene permiso: ${tienePermisoSub ? '✅ Sí' : '❌ No'}`);
                           
                           return (
                             <NavLink
