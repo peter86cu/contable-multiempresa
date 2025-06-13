@@ -4,15 +4,13 @@ import {
   where, 
   orderBy, 
   getDocs, 
-  Timestamp,
-  doc,
-  getDoc
+  Timestamp 
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { AsientoContable, PlanCuenta } from '../../types';
 
-// Balance General Types
+// Tipos para los reportes
 export interface BalanceGeneralData {
   activos: GrupoBalance[];
   pasivos: GrupoBalance[];
@@ -37,7 +35,6 @@ export interface CuentaBalance {
   saldo: number;
 }
 
-// Estado de Resultados Types
 export interface EstadoResultadosData {
   ingresos: GrupoResultado[];
   gastos: GrupoResultado[];
@@ -68,7 +65,6 @@ export interface CuentaResultado {
   saldo: number;
 }
 
-// Flujo de Efectivo Types
 export interface FlujoEfectivoData {
   operacion: GrupoFlujo[];
   inversion: GrupoFlujo[];
@@ -112,16 +108,17 @@ export class ReportesService {
 
       console.log('🔄 Generando balance general para empresa:', empresaId);
       
-      // 1. Obtener todas las cuentas
+      // Obtener todas las cuentas
       const cuentasRef = collection(db, 'empresas', empresaId, 'cuentas');
-      const cuentasSnapshot = await getDocs(cuentasRef);
+      const cuentasQuery = query(cuentasRef, where('activa', '==', true), orderBy('codigo'));
+      const cuentasSnapshot = await getDocs(cuentasQuery);
       
       const cuentas = cuentasSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as PlanCuenta[];
       
-      // 2. Obtener asientos contables del período
+      // Obtener asientos del período
       const asientosRef = collection(db, 'empresas', empresaId, 'asientos');
       let asientosQuery = query(
         asientosRef,
@@ -142,7 +139,7 @@ export class ReportesService {
         ...doc.data()
       })) as AsientoContable[];
       
-      // 3. Calcular saldos por cuenta
+      // Calcular saldos por cuenta
       const saldosCuentas = new Map<string, number>();
       
       // Inicializar saldos
@@ -161,12 +158,10 @@ export class ReportesService {
         });
       });
       
-      // 4. Organizar cuentas por tipo y grupo
-      const activosCorrientes: CuentaBalance[] = [];
-      const activosNoCorrientes: CuentaBalance[] = [];
-      const pasivosCorrientes: CuentaBalance[] = [];
-      const pasivosNoCorrientes: CuentaBalance[] = [];
-      const patrimonioItems: CuentaBalance[] = [];
+      // Agrupar cuentas por tipo
+      const activosCuentas: CuentaBalance[] = [];
+      const pasivosCuentas: CuentaBalance[] = [];
+      const patrimonioCuentas: CuentaBalance[] = [];
       
       cuentas.forEach(cuenta => {
         const saldo = saldosCuentas.get(cuenta.id) || 0;
@@ -179,70 +174,67 @@ export class ReportesService {
             saldo: Math.abs(saldo) // Usar valor absoluto para presentación
           };
           
-          // Clasificar según tipo y código
-          if (cuenta.tipo === 'ACTIVO') {
-            // Activos corrientes (códigos 10-29)
-            if (parseInt(cuenta.codigo.substring(0, 2)) < 30) {
-              activosCorrientes.push(cuentaBalance);
-            } else {
-              activosNoCorrientes.push(cuentaBalance);
-            }
-          } else if (cuenta.tipo === 'PASIVO') {
-            // Pasivos corrientes (códigos 40-49)
-            if (parseInt(cuenta.codigo.substring(0, 2)) < 45) {
-              pasivosCorrientes.push(cuentaBalance);
-            } else {
-              pasivosNoCorrientes.push(cuentaBalance);
-            }
-          } else if (cuenta.tipo === 'PATRIMONIO') {
-            patrimonioItems.push(cuentaBalance);
+          switch (cuenta.tipo) {
+            case 'ACTIVO':
+              activosCuentas.push(cuentaBalance);
+              break;
+            case 'PASIVO':
+              pasivosCuentas.push(cuentaBalance);
+              break;
+            case 'PATRIMONIO':
+              patrimonioCuentas.push(cuentaBalance);
+              break;
           }
         }
       });
       
-      // 5. Calcular totales
-      const totalActivosCorrientes = activosCorrientes.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalActivosNoCorrientes = activosNoCorrientes.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalPasivosCorrientes = pasivosCorrientes.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalPasivosNoCorrientes = pasivosNoCorrientes.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalPatrimonio = patrimonioItems.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
+      // Agrupar activos
+      const activosGrupos: GrupoBalance[] = [
+        {
+          nombre: 'ACTIVO CORRIENTE',
+          cuentas: activosCuentas.filter(c => c.codigo.startsWith('1')),
+          total: activosCuentas.filter(c => c.codigo.startsWith('1')).reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'ACTIVO NO CORRIENTE',
+          cuentas: activosCuentas.filter(c => !c.codigo.startsWith('1')),
+          total: activosCuentas.filter(c => !c.codigo.startsWith('1')).reduce((sum, c) => sum + c.saldo, 0)
+        }
+      ];
       
-      const totalActivos = totalActivosCorrientes + totalActivosNoCorrientes;
-      const totalPasivos = totalPasivosCorrientes + totalPasivosNoCorrientes;
+      // Agrupar pasivos
+      const pasivosGrupos: GrupoBalance[] = [
+        {
+          nombre: 'PASIVO CORRIENTE',
+          cuentas: pasivosCuentas.filter(c => c.codigo.startsWith('4')),
+          total: pasivosCuentas.filter(c => c.codigo.startsWith('4')).reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'PASIVO NO CORRIENTE',
+          cuentas: pasivosCuentas.filter(c => !c.codigo.startsWith('4')),
+          total: pasivosCuentas.filter(c => !c.codigo.startsWith('4')).reduce((sum, c) => sum + c.saldo, 0)
+        }
+      ];
       
-      // 6. Construir estructura del balance
-      const balanceData: BalanceGeneralData = {
-        activos: [
-          {
-            nombre: 'ACTIVO CORRIENTE',
-            cuentas: activosCorrientes,
-            total: totalActivosCorrientes
-          },
-          {
-            nombre: 'ACTIVO NO CORRIENTE',
-            cuentas: activosNoCorrientes,
-            total: totalActivosNoCorrientes
-          }
-        ],
-        pasivos: [
-          {
-            nombre: 'PASIVO CORRIENTE',
-            cuentas: pasivosCorrientes,
-            total: totalPasivosCorrientes
-          },
-          {
-            nombre: 'PASIVO NO CORRIENTE',
-            cuentas: pasivosNoCorrientes,
-            total: totalPasivosNoCorrientes
-          }
-        ],
-        patrimonio: [
-          {
-            nombre: 'PATRIMONIO',
-            cuentas: patrimonioItems,
-            total: totalPatrimonio
-          }
-        ],
+      // Agrupar patrimonio
+      const patrimonioGrupos: GrupoBalance[] = [
+        {
+          nombre: 'PATRIMONIO',
+          cuentas: patrimonioCuentas,
+          total: patrimonioCuentas.reduce((sum, c) => sum + c.saldo, 0)
+        }
+      ];
+      
+      // Calcular totales
+      const totalActivos = activosGrupos.reduce((sum, g) => sum + g.total, 0);
+      const totalPasivos = pasivosGrupos.reduce((sum, g) => sum + g.total, 0);
+      const totalPatrimonio = patrimonioGrupos.reduce((sum, g) => sum + g.total, 0);
+      
+      // Crear balance general
+      const balanceGeneral: BalanceGeneralData = {
+        activos: activosGrupos,
+        pasivos: pasivosGrupos,
+        patrimonio: patrimonioGrupos,
         totalActivos,
         totalPasivos,
         totalPatrimonio,
@@ -251,14 +243,14 @@ export class ReportesService {
         fechaFin
       };
       
-      console.log('✅ Balance general generado exitosamente');
-      return balanceData;
+      console.log('✅ Balance general generado correctamente');
+      return balanceGeneral;
     } catch (error) {
-      console.error('❌ Error generando balance general:', error);
+      console.error('Error generando balance general:', error);
       throw error;
     }
   }
-  
+
   // Estado de Resultados
   static async generarEstadoResultados(
     empresaId: string,
@@ -274,16 +266,17 @@ export class ReportesService {
 
       console.log('🔄 Generando estado de resultados para empresa:', empresaId);
       
-      // 1. Obtener todas las cuentas
+      // Obtener todas las cuentas
       const cuentasRef = collection(db, 'empresas', empresaId, 'cuentas');
-      const cuentasSnapshot = await getDocs(cuentasRef);
+      const cuentasQuery = query(cuentasRef, where('activa', '==', true), orderBy('codigo'));
+      const cuentasSnapshot = await getDocs(cuentasQuery);
       
       const cuentas = cuentasSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as PlanCuenta[];
       
-      // 2. Obtener asientos contables del período
+      // Obtener asientos del período
       const asientosRef = collection(db, 'empresas', empresaId, 'asientos');
       let asientosQuery = query(
         asientosRef,
@@ -304,7 +297,7 @@ export class ReportesService {
         ...doc.data()
       })) as AsientoContable[];
       
-      // 3. Calcular saldos por cuenta
+      // Calcular saldos por cuenta
       const saldosCuentas = new Map<string, number>();
       
       // Inicializar saldos
@@ -319,27 +312,13 @@ export class ReportesService {
           const debe = movimiento.debito || 0;
           const haber = movimiento.credito || 0;
           
-          // Para cuentas de resultado, el saldo se calcula diferente
-          const cuenta = cuentas.find(c => c.id === movimiento.cuentaId);
-          if (cuenta) {
-            if (cuenta.tipo === 'INGRESO') {
-              // Ingresos aumentan con créditos
-              saldosCuentas.set(movimiento.cuentaId, saldoActual + haber - debe);
-            } else if (cuenta.tipo === 'GASTO') {
-              // Gastos aumentan con débitos
-              saldosCuentas.set(movimiento.cuentaId, saldoActual + debe - haber);
-            }
-          }
+          saldosCuentas.set(movimiento.cuentaId, saldoActual + debe - haber);
         });
       });
       
-      // 4. Organizar cuentas por tipo y grupo
-      const ingresosOperacionales: CuentaResultado[] = [];
-      const otrosIngresos: CuentaResultado[] = [];
-      const costoVentas: CuentaResultado[] = [];
-      const gastosOperativos: CuentaResultado[] = [];
-      const gastosFinancieros: CuentaResultado[] = [];
-      const impuestosGastos: CuentaResultado[] = [];
+      // Agrupar cuentas por tipo
+      const ingresosCuentas: CuentaResultado[] = [];
+      const gastosCuentas: CuentaResultado[] = [];
       
       cuentas.forEach(cuenta => {
         const saldo = saldosCuentas.get(cuenta.id) || 0;
@@ -352,105 +331,113 @@ export class ReportesService {
             saldo: Math.abs(saldo) // Usar valor absoluto para presentación
           };
           
-          // Clasificar según tipo y código
           if (cuenta.tipo === 'INGRESO') {
-            // Ingresos operacionales (códigos 70-74)
-            if (parseInt(cuenta.codigo.substring(0, 2)) >= 70 && parseInt(cuenta.codigo.substring(0, 2)) <= 74) {
-              ingresosOperacionales.push(cuentaResultado);
-            } else {
-              otrosIngresos.push(cuentaResultado);
-            }
+            ingresosCuentas.push(cuentaResultado);
           } else if (cuenta.tipo === 'GASTO') {
-            // Costo de ventas (código 69)
-            if (cuenta.codigo.startsWith('69')) {
-              costoVentas.push(cuentaResultado);
-            } 
-            // Gastos operativos (códigos 60-68)
-            else if (parseInt(cuenta.codigo.substring(0, 2)) >= 60 && parseInt(cuenta.codigo.substring(0, 2)) <= 68) {
-              gastosOperativos.push(cuentaResultado);
-            }
-            // Gastos financieros (código 67)
-            else if (cuenta.codigo.startsWith('67')) {
-              gastosFinancieros.push(cuentaResultado);
-            }
-            // Impuestos (código 88)
-            else if (cuenta.codigo.startsWith('88')) {
-              impuestosGastos.push(cuentaResultado);
-            }
+            gastosCuentas.push(cuentaResultado);
           }
         }
       });
       
-      // 5. Calcular totales
-      const totalIngresosOperacionales = ingresosOperacionales.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalOtrosIngresos = otrosIngresos.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalCostoVentas = costoVentas.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalGastosOperativos = gastosOperativos.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalGastosFinancieros = gastosFinancieros.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
-      const totalImpuestos = impuestosGastos.reduce((sum, cuenta) => sum + cuenta.saldo, 0);
+      // Agrupar ingresos
+      const ingresosOperacionales = ingresosCuentas.filter(c => c.codigo.startsWith('70'));
+      const otrosIngresos = ingresosCuentas.filter(c => !c.codigo.startsWith('70'));
       
-      const totalIngresos = totalIngresosOperacionales + totalOtrosIngresos;
-      const totalGastos = totalCostoVentas + totalGastosOperativos + totalGastosFinancieros + totalImpuestos;
+      const ingresosGrupos: GrupoResultado[] = [
+        {
+          nombre: 'INGRESOS OPERACIONALES',
+          cuentas: ingresosOperacionales,
+          total: ingresosOperacionales.reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'OTROS INGRESOS',
+          cuentas: otrosIngresos,
+          total: otrosIngresos.reduce((sum, c) => sum + c.saldo, 0)
+        }
+      ];
       
-      const utilidadBruta = totalIngresosOperacionales - totalCostoVentas;
-      const utilidadOperativa = utilidadBruta - totalGastosOperativos;
-      const utilidadAntesImpuestos = utilidadOperativa + totalOtrosIngresos - totalGastosFinancieros;
-      const utilidadNeta = utilidadAntesImpuestos - totalImpuestos;
+      // Agrupar gastos
+      const costoVentas = gastosCuentas.filter(c => c.codigo.startsWith('69'));
+      const gastosOperativos = gastosCuentas.filter(c => 
+        c.codigo.startsWith('62') || 
+        c.codigo.startsWith('63') || 
+        c.codigo.startsWith('65')
+      );
+      const gastosFinancieros = gastosCuentas.filter(c => c.codigo.startsWith('67'));
+      const otrosGastos = gastosCuentas.filter(c => 
+        !c.codigo.startsWith('69') && 
+        !c.codigo.startsWith('62') && 
+        !c.codigo.startsWith('63') && 
+        !c.codigo.startsWith('65') && 
+        !c.codigo.startsWith('67')
+      );
       
-      // 6. Construir estructura del estado de resultados
-      const resultadosData: EstadoResultadosData = {
-        ingresos: [
-          {
-            nombre: 'INGRESOS OPERACIONALES',
-            cuentas: ingresosOperacionales,
-            total: totalIngresosOperacionales
-          },
-          {
-            nombre: 'OTROS INGRESOS',
-            cuentas: otrosIngresos,
-            total: totalOtrosIngresos
-          }
-        ],
-        gastos: [
-          {
-            nombre: 'COSTO DE VENTAS',
-            cuentas: costoVentas,
-            total: totalCostoVentas
-          },
-          {
-            nombre: 'GASTOS OPERATIVOS',
-            cuentas: gastosOperativos,
-            total: totalGastosOperativos
-          },
-          {
-            nombre: 'GASTOS FINANCIEROS',
-            cuentas: gastosFinancieros,
-            total: totalGastosFinancieros
-          }
-        ],
+      const gastosGrupos: GrupoResultado[] = [
+        {
+          nombre: 'COSTO DE VENTAS',
+          cuentas: costoVentas,
+          total: costoVentas.reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'GASTOS OPERATIVOS',
+          cuentas: gastosOperativos,
+          total: gastosOperativos.reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'GASTOS FINANCIEROS',
+          cuentas: gastosFinancieros,
+          total: gastosFinancieros.reduce((sum, c) => sum + c.saldo, 0)
+        },
+        {
+          nombre: 'OTROS GASTOS',
+          cuentas: otrosGastos,
+          total: otrosGastos.reduce((sum, c) => sum + c.saldo, 0)
+        }
+      ];
+      
+      // Calcular totales
+      const totalIngresos = ingresosGrupos.reduce((sum, g) => sum + g.total, 0);
+      const totalGastos = gastosGrupos.reduce((sum, g) => sum + g.total, 0);
+      const costoVentasTotal = costoVentas.reduce((sum, c) => sum + c.saldo, 0);
+      const utilidadBruta = totalIngresos - costoVentasTotal;
+      const gastosOperativosTotal = gastosOperativos.reduce((sum, c) => sum + c.saldo, 0);
+      const utilidadOperativa = utilidadBruta - gastosOperativosTotal;
+      const otrosIngresosTotal = otrosIngresos.reduce((sum, c) => sum + c.saldo, 0);
+      const otrosGastosTotal = gastosFinancieros.reduce((sum, c) => sum + c.saldo, 0) + 
+                              otrosGastos.reduce((sum, c) => sum + c.saldo, 0);
+      const utilidadAntesImpuestos = utilidadOperativa + otrosIngresosTotal - otrosGastosTotal;
+      
+      // Estimar impuestos (30% de la utilidad antes de impuestos)
+      const impuestos = utilidadAntesImpuestos > 0 ? utilidadAntesImpuestos * 0.3 : 0;
+      const utilidadNeta = utilidadAntesImpuestos - impuestos;
+      
+      // Crear estado de resultados
+      const estadoResultados: EstadoResultadosData = {
+        ingresos: ingresosGrupos,
+        gastos: gastosGrupos,
         totalIngresos,
         totalGastos,
         utilidadBruta,
-        gastosOperativos: totalGastosOperativos,
+        gastosOperativos: gastosOperativosTotal,
         utilidadOperativa,
-        otrosIngresos: totalOtrosIngresos,
-        otrosGastos: totalGastosFinancieros,
+        otrosIngresos: otrosIngresosTotal,
+        otrosGastos: otrosGastosTotal,
         utilidadAntesImpuestos,
-        impuestos: totalImpuestos,
+        impuestos,
         utilidadNeta,
         fechaGeneracion: new Date(),
         fechaInicio,
         fechaFin
       };
       
-      console.log('✅ Estado de resultados generado exitosamente');
-      return resultadosData;
+      console.log('✅ Estado de resultados generado correctamente');
+      return estadoResultados;
     } catch (error) {
-      console.error('❌ Error generando estado de resultados:', error);
+      console.error('Error generando estado de resultados:', error);
       throw error;
     }
   }
-  
+
   // Flujo de Efectivo
   static async generarFlujoEfectivo(
     empresaId: string,
@@ -466,7 +453,7 @@ export class ReportesService {
 
       console.log('🔄 Generando flujo de efectivo para empresa:', empresaId);
       
-      // 1. Obtener movimientos de tesorería
+      // Obtener movimientos de tesorería
       const movimientosRef = collection(db, 'empresas', empresaId, 'movimientosTesoreria');
       let movimientosQuery = query(movimientosRef);
       
@@ -484,7 +471,7 @@ export class ReportesService {
         ...doc.data()
       }));
       
-      // 2. Obtener saldo inicial (movimientos antes del período)
+      // Obtener saldo inicial (movimientos antes del período)
       let saldoInicial = 0;
       if (fechaInicio) {
         const movimientosAnterioresQuery = query(
@@ -502,103 +489,112 @@ export class ReportesService {
           } else if (mov.tipo === 'EGRESO') {
             saldoInicial -= mov.monto;
           }
+          // Las transferencias no afectan el saldo total
         });
       }
       
-      // 3. Clasificar movimientos por actividad
-      const movimientosOperacion: MovimientoFlujo[] = [];
-      const movimientosInversion: MovimientoFlujo[] = [];
-      const movimientosFinanciamiento: MovimientoFlujo[] = [];
+      // Clasificar movimientos
+      const movimientosOperacion: any[] = [];
+      const movimientosInversion: any[] = [];
+      const movimientosFinanciamiento: any[] = [];
       
       movimientos.forEach(mov => {
+        // Clasificar según concepto y tipo
+        const concepto = mov.concepto.toLowerCase();
         const movimientoFlujo: MovimientoFlujo = {
           descripcion: mov.concepto,
           monto: mov.monto,
           tipo: mov.tipo === 'INGRESO' ? 'INGRESO' : 'EGRESO'
         };
         
-        // Clasificar según concepto o documentoRelacionado
-        if (mov.concepto.toLowerCase().includes('cobro') || 
-            mov.concepto.toLowerCase().includes('venta') ||
-            mov.concepto.toLowerCase().includes('cliente')) {
+        if (
+          concepto.includes('cobro') || 
+          concepto.includes('venta') || 
+          concepto.includes('cliente') ||
+          concepto.includes('operativo')
+        ) {
           movimientosOperacion.push(movimientoFlujo);
-        }
-        else if (mov.concepto.toLowerCase().includes('pago') || 
-                 mov.concepto.toLowerCase().includes('compra') ||
-                 mov.concepto.toLowerCase().includes('proveedor') ||
-                 mov.concepto.toLowerCase().includes('servicio')) {
-          movimientosOperacion.push(movimientoFlujo);
-        }
-        else if (mov.concepto.toLowerCase().includes('activo') || 
-                 mov.concepto.toLowerCase().includes('equipo') ||
-                 mov.concepto.toLowerCase().includes('maquinaria') ||
-                 mov.concepto.toLowerCase().includes('inversión')) {
+        } else if (
+          concepto.includes('activo') || 
+          concepto.includes('equipo') || 
+          concepto.includes('inversion')
+        ) {
           movimientosInversion.push(movimientoFlujo);
-        }
-        else if (mov.concepto.toLowerCase().includes('préstamo') || 
-                 mov.concepto.toLowerCase().includes('financiamiento') ||
-                 mov.concepto.toLowerCase().includes('dividendo') ||
-                 mov.concepto.toLowerCase().includes('capital')) {
+        } else if (
+          concepto.includes('prestamo') || 
+          concepto.includes('financiamiento') || 
+          concepto.includes('dividendo')
+        ) {
           movimientosFinanciamiento.push(movimientoFlujo);
-        }
-        else {
+        } else {
           // Por defecto, considerar como operación
           movimientosOperacion.push(movimientoFlujo);
         }
       });
       
-      // 4. Calcular totales por actividad
-      const calcularTotal = (movs: MovimientoFlujo[]) => {
-        return movs.reduce((total, mov) => {
-          return total + (mov.tipo === 'INGRESO' ? mov.monto : -mov.monto);
-        }, 0);
-      };
+      // Agrupar movimientos de operación
+      const ingresosOperacionales = movimientosOperacion.filter(m => m.tipo === 'INGRESO');
+      const egresosOperacionales = movimientosOperacion.filter(m => m.tipo === 'EGRESO');
       
-      const totalOperacion = calcularTotal(movimientosOperacion);
-      const totalInversion = calcularTotal(movimientosInversion);
-      const totalFinanciamiento = calcularTotal(movimientosFinanciamiento);
+      const operacionGrupos: GrupoFlujo[] = [
+        {
+          nombre: 'INGRESOS OPERACIONALES',
+          movimientos: ingresosOperacionales,
+          total: ingresosOperacionales.reduce((sum, m) => sum + m.monto, 0)
+        },
+        {
+          nombre: 'EGRESOS OPERACIONALES',
+          movimientos: egresosOperacionales,
+          total: -egresosOperacionales.reduce((sum, m) => sum + m.monto, 0)
+        }
+      ];
       
+      // Agrupar movimientos de inversión
+      const ingresosInversion = movimientosInversion.filter(m => m.tipo === 'INGRESO');
+      const egresosInversion = movimientosInversion.filter(m => m.tipo === 'EGRESO');
+      
+      const inversionGrupos: GrupoFlujo[] = [
+        {
+          nombre: 'INGRESOS DE INVERSIÓN',
+          movimientos: ingresosInversion,
+          total: ingresosInversion.reduce((sum, m) => sum + m.monto, 0)
+        },
+        {
+          nombre: 'EGRESOS DE INVERSIÓN',
+          movimientos: egresosInversion,
+          total: -egresosInversion.reduce((sum, m) => sum + m.monto, 0)
+        }
+      ];
+      
+      // Agrupar movimientos de financiamiento
+      const ingresosFinanciamiento = movimientosFinanciamiento.filter(m => m.tipo === 'INGRESO');
+      const egresosFinanciamiento = movimientosFinanciamiento.filter(m => m.tipo === 'EGRESO');
+      
+      const financiamientoGrupos: GrupoFlujo[] = [
+        {
+          nombre: 'INGRESOS DE FINANCIAMIENTO',
+          movimientos: ingresosFinanciamiento,
+          total: ingresosFinanciamiento.reduce((sum, m) => sum + m.monto, 0)
+        },
+        {
+          nombre: 'EGRESOS DE FINANCIAMIENTO',
+          movimientos: egresosFinanciamiento,
+          total: -egresosFinanciamiento.reduce((sum, m) => sum + m.monto, 0)
+        }
+      ];
+      
+      // Calcular totales
+      const totalOperacion = operacionGrupos.reduce((sum, g) => sum + g.total, 0);
+      const totalInversion = inversionGrupos.reduce((sum, g) => sum + g.total, 0);
+      const totalFinanciamiento = financiamientoGrupos.reduce((sum, g) => sum + g.total, 0);
       const flujoPeriodo = totalOperacion + totalInversion + totalFinanciamiento;
       const saldoFinal = saldoInicial + flujoPeriodo;
       
-      // 5. Agrupar movimientos por tipo
-      const flujoData: FlujoEfectivoData = {
-        operacion: [
-          {
-            nombre: 'INGRESOS OPERACIONALES',
-            movimientos: movimientosOperacion.filter(m => m.tipo === 'INGRESO'),
-            total: movimientosOperacion.filter(m => m.tipo === 'INGRESO').reduce((sum, m) => sum + m.monto, 0)
-          },
-          {
-            nombre: 'EGRESOS OPERACIONALES',
-            movimientos: movimientosOperacion.filter(m => m.tipo === 'EGRESO'),
-            total: -movimientosOperacion.filter(m => m.tipo === 'EGRESO').reduce((sum, m) => sum + m.monto, 0)
-          }
-        ],
-        inversion: [
-          {
-            nombre: 'INGRESOS DE INVERSIÓN',
-            movimientos: movimientosInversion.filter(m => m.tipo === 'INGRESO'),
-            total: movimientosInversion.filter(m => m.tipo === 'INGRESO').reduce((sum, m) => sum + m.monto, 0)
-          },
-          {
-            nombre: 'EGRESOS DE INVERSIÓN',
-            movimientos: movimientosInversion.filter(m => m.tipo === 'EGRESO'),
-            total: -movimientosInversion.filter(m => m.tipo === 'EGRESO').reduce((sum, m) => sum + m.monto, 0)
-          }
-        ],
-        financiamiento: [
-          {
-            nombre: 'INGRESOS DE FINANCIAMIENTO',
-            movimientos: movimientosFinanciamiento.filter(m => m.tipo === 'INGRESO'),
-            total: movimientosFinanciamiento.filter(m => m.tipo === 'INGRESO').reduce((sum, m) => sum + m.monto, 0)
-          },
-          {
-            nombre: 'EGRESOS DE FINANCIAMIENTO',
-            movimientos: movimientosFinanciamiento.filter(m => m.tipo === 'EGRESO'),
-            total: -movimientosFinanciamiento.filter(m => m.tipo === 'EGRESO').reduce((sum, m) => sum + m.monto, 0)
-          }
-        ],
+      // Crear flujo de efectivo
+      const flujoEfectivo: FlujoEfectivoData = {
+        operacion: operacionGrupos,
+        inversion: inversionGrupos,
+        financiamiento: financiamientoGrupos,
         totalOperacion,
         totalInversion,
         totalFinanciamiento,
@@ -610,15 +606,15 @@ export class ReportesService {
         fechaFin
       };
       
-      console.log('✅ Flujo de efectivo generado exitosamente');
-      return flujoData;
+      console.log('✅ Flujo de efectivo generado correctamente');
+      return flujoEfectivo;
     } catch (error) {
-      console.error('❌ Error generando flujo de efectivo:', error);
+      console.error('Error generando flujo de efectivo:', error);
       throw error;
     }
   }
 
-  // Exportación a Excel para Balance General
+  // Exportar Balance General a Excel
   static exportarBalanceGeneralExcel(data: BalanceGeneralData, empresaNombre: string): void {
     let content = `Balance General\n`;
     content += `${empresaNombre}\n`;
@@ -628,35 +624,37 @@ export class ReportesService {
     // Activos
     content += `ACTIVOS\n`;
     data.activos.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.cuentas.forEach(cuenta => {
         content += `\t${cuenta.codigo}\t${cuenta.nombre}\t${cuenta.saldo.toFixed(2)}\n`;
       });
     });
-    content += `TOTAL ACTIVOS\t${data.totalActivos.toFixed(2)}\n\n`;
+    content += `TOTAL ACTIVOS\t\t${data.totalActivos.toFixed(2)}\n\n`;
 
     // Pasivos
     content += `PASIVOS\n`;
     data.pasivos.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.cuentas.forEach(cuenta => {
         content += `\t${cuenta.codigo}\t${cuenta.nombre}\t${cuenta.saldo.toFixed(2)}\n`;
       });
     });
-    content += `TOTAL PASIVOS\t${data.totalPasivos.toFixed(2)}\n\n`;
+    content += `TOTAL PASIVOS\t\t${data.totalPasivos.toFixed(2)}\n\n`;
 
     // Patrimonio
     content += `PATRIMONIO\n`;
     data.patrimonio.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.cuentas.forEach(cuenta => {
         content += `\t${cuenta.codigo}\t${cuenta.nombre}\t${cuenta.saldo.toFixed(2)}\n`;
       });
     });
-    content += `TOTAL PATRIMONIO\t${data.totalPatrimonio.toFixed(2)}\n\n`;
+    content += `TOTAL PATRIMONIO\t\t${data.totalPatrimonio.toFixed(2)}\n\n`;
 
     // Ecuación contable
-    content += `TOTAL PASIVO + PATRIMONIO\t${(data.totalPasivos + data.totalPatrimonio).toFixed(2)}\n`;
+    content += `ECUACIÓN CONTABLE\n`;
+    content += `Activo = Pasivo + Patrimonio\n`;
+    content += `${data.totalActivos.toFixed(2)} = ${data.totalPasivos.toFixed(2)} + ${data.totalPatrimonio.toFixed(2)}\n`;
 
     const blob = new Blob([content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
@@ -669,7 +667,7 @@ export class ReportesService {
     document.body.removeChild(link);
   }
 
-  // Exportación a PDF para Balance General
+  // Exportar Balance General a PDF
   static exportarBalanceGeneralPDF(data: BalanceGeneralData, empresaNombre: string): void {
     // Crear contenido HTML para PDF
     const htmlContent = `
@@ -719,15 +717,15 @@ export class ReportesService {
             font-weight: bold;
           }
           .group-header {
-            background-color: #e0e0e0;
-            font-weight: bold;
-          }
-          .total-row {
             background-color: #f0f0f0;
             font-weight: bold;
           }
           .number { 
             text-align: right; 
+          }
+          .total { 
+            font-weight: bold;
+            background-color: #f0f0f0;
           }
           .footer {
             margin-top: 30px;
@@ -736,6 +734,13 @@ export class ReportesService {
             color: #666;
             border-top: 1px solid #ddd;
             padding-top: 10px;
+          }
+          .equation {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            text-align: center;
           }
         </style>
       </head>
@@ -750,7 +755,7 @@ export class ReportesService {
         </div>
         
         <!-- ACTIVOS -->
-        <h3>ACTIVOS</h3>
+        <h2>ACTIVOS</h2>
         <table>
           <thead>
             <tr>
@@ -773,7 +778,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td colspan="2">TOTAL ACTIVOS</td>
               <td class="number">${data.totalActivos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -781,7 +786,7 @@ export class ReportesService {
         </table>
         
         <!-- PASIVOS -->
-        <h3>PASIVOS</h3>
+        <h2>PASIVOS</h2>
         <table>
           <thead>
             <tr>
@@ -804,7 +809,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td colspan="2">TOTAL PASIVOS</td>
               <td class="number">${data.totalPasivos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -812,7 +817,7 @@ export class ReportesService {
         </table>
         
         <!-- PATRIMONIO -->
-        <h3>PATRIMONIO</h3>
+        <h2>PATRIMONIO</h2>
         <table>
           <thead>
             <tr>
@@ -835,34 +840,17 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td colspan="2">TOTAL PATRIMONIO</td>
               <td class="number">${data.totalPatrimonio.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
           </tbody>
         </table>
         
-        <!-- RESUMEN -->
-        <div style="margin-top: 30px; padding: 15px; border: 1px solid #ddd; background-color: #f9f9f9;">
-          <h3 style="margin-top: 0;">RESUMEN</h3>
-          <table style="width: 100%; border: none;">
-            <tr>
-              <td style="border: none; width: 70%;">Total Activos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.totalActivos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Total Pasivos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.totalPasivos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Total Patrimonio</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.totalPatrimonio.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px;">Total Pasivo + Patrimonio</td>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px; text-align: right; font-weight: bold;">${(data.totalPasivos + data.totalPatrimonio).toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-          </table>
+        <div class="equation">
+          <h3>ECUACIÓN CONTABLE</h3>
+          <p>Activo = Pasivo + Patrimonio</p>
+          <p>${data.totalActivos.toLocaleString('es-PE', {minimumFractionDigits: 2})} = ${data.totalPasivos.toLocaleString('es-PE', {minimumFractionDigits: 2})} + ${data.totalPatrimonio.toLocaleString('es-PE', {minimumFractionDigits: 2})}</p>
         </div>
         
         <div class="footer">
@@ -886,7 +874,7 @@ export class ReportesService {
     }
   }
 
-  // Exportación a Excel para Estado de Resultados
+  // Exportar Estado de Resultados a Excel
   static exportarEstadoResultadosExcel(data: EstadoResultadosData, empresaNombre: string): void {
     let content = `Estado de Resultados\n`;
     content += `${empresaNombre}\n`;
@@ -896,33 +884,33 @@ export class ReportesService {
     // Ingresos
     content += `INGRESOS\n`;
     data.ingresos.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.cuentas.forEach(cuenta => {
         content += `\t${cuenta.codigo}\t${cuenta.nombre}\t${cuenta.saldo.toFixed(2)}\n`;
       });
     });
-    content += `TOTAL INGRESOS\t${data.totalIngresos.toFixed(2)}\n\n`;
+    content += `TOTAL INGRESOS\t\t${data.totalIngresos.toFixed(2)}\n\n`;
 
     // Gastos
     content += `GASTOS\n`;
     data.gastos.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.cuentas.forEach(cuenta => {
         content += `\t${cuenta.codigo}\t${cuenta.nombre}\t${cuenta.saldo.toFixed(2)}\n`;
       });
     });
-    content += `TOTAL GASTOS\t${data.totalGastos.toFixed(2)}\n\n`;
+    content += `TOTAL GASTOS\t\t${data.totalGastos.toFixed(2)}\n\n`;
 
     // Resultados
     content += `RESULTADOS\n`;
-    content += `UTILIDAD BRUTA\t${data.utilidadBruta.toFixed(2)}\n`;
-    content += `GASTOS OPERATIVOS\t${data.gastosOperativos.toFixed(2)}\n`;
-    content += `UTILIDAD OPERATIVA\t${data.utilidadOperativa.toFixed(2)}\n`;
-    content += `OTROS INGRESOS\t${data.otrosIngresos.toFixed(2)}\n`;
-    content += `OTROS GASTOS\t${data.otrosGastos.toFixed(2)}\n`;
-    content += `UTILIDAD ANTES DE IMPUESTOS\t${data.utilidadAntesImpuestos.toFixed(2)}\n`;
-    content += `IMPUESTOS\t${data.impuestos.toFixed(2)}\n`;
-    content += `UTILIDAD NETA\t${data.utilidadNeta.toFixed(2)}\n`;
+    content += `UTILIDAD BRUTA\t\t${data.utilidadBruta.toFixed(2)}\n`;
+    content += `GASTOS OPERATIVOS\t\t${data.gastosOperativos.toFixed(2)}\n`;
+    content += `UTILIDAD OPERATIVA\t\t${data.utilidadOperativa.toFixed(2)}\n`;
+    content += `OTROS INGRESOS\t\t${data.otrosIngresos.toFixed(2)}\n`;
+    content += `OTROS GASTOS\t\t${data.otrosGastos.toFixed(2)}\n`;
+    content += `UTILIDAD ANTES DE IMPUESTOS\t\t${data.utilidadAntesImpuestos.toFixed(2)}\n`;
+    content += `IMPUESTOS\t\t${data.impuestos.toFixed(2)}\n`;
+    content += `UTILIDAD NETA\t\t${data.utilidadNeta.toFixed(2)}\n`;
 
     const blob = new Blob([content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
@@ -935,7 +923,7 @@ export class ReportesService {
     document.body.removeChild(link);
   }
 
-  // Exportación a PDF para Estado de Resultados
+  // Exportar Estado de Resultados a PDF
   static exportarEstadoResultadosPDF(data: EstadoResultadosData, empresaNombre: string): void {
     // Crear contenido HTML para PDF
     const htmlContent = `
@@ -985,15 +973,15 @@ export class ReportesService {
             font-weight: bold;
           }
           .group-header {
-            background-color: #e0e0e0;
-            font-weight: bold;
-          }
-          .total-row {
             background-color: #f0f0f0;
             font-weight: bold;
           }
           .number { 
             text-align: right; 
+          }
+          .total { 
+            font-weight: bold;
+            background-color: #f0f0f0;
           }
           .footer {
             margin-top: 30px;
@@ -1003,14 +991,20 @@ export class ReportesService {
             border-top: 1px solid #ddd;
             padding-top: 10px;
           }
-          .results-section {
-            margin-top: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
+          .results {
+            margin-top: 20px;
+            padding: 10px;
             background-color: #f9f9f9;
+            border: 1px solid #ddd;
           }
-          .positive { color: #28a745; }
-          .negative { color: #dc3545; }
+          .results table {
+            margin-top: 0;
+          }
+          .utilidad-neta {
+            font-size: 14px;
+            font-weight: bold;
+            color: ${data.utilidadNeta >= 0 ? '#28a745' : '#dc3545'};
+          }
         </style>
       </head>
       <body>
@@ -1024,7 +1018,7 @@ export class ReportesService {
         </div>
         
         <!-- INGRESOS -->
-        <h3>INGRESOS</h3>
+        <h2>INGRESOS</h2>
         <table>
           <thead>
             <tr>
@@ -1047,7 +1041,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td colspan="2">TOTAL INGRESOS</td>
               <td class="number">${data.totalIngresos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -1055,7 +1049,7 @@ export class ReportesService {
         </table>
         
         <!-- GASTOS -->
-        <h3>GASTOS</h3>
+        <h2>GASTOS</h2>
         <table>
           <thead>
             <tr>
@@ -1078,7 +1072,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td colspan="2">TOTAL GASTOS</td>
               <td class="number">${data.totalGastos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -1086,41 +1080,43 @@ export class ReportesService {
         </table>
         
         <!-- RESULTADOS -->
-        <div class="results-section">
-          <h3 style="margin-top: 0;">RESULTADOS</h3>
-          <table style="width: 100%; border: none;">
-            <tr>
-              <td style="border: none; width: 70%;">Utilidad Bruta</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.utilidadBruta >= 0 ? 'positive' : 'negative'}">${data.utilidadBruta.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Gastos Operativos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.gastosOperativos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Utilidad Operativa</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.utilidadOperativa >= 0 ? 'positive' : 'negative'}">${data.utilidadOperativa.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Otros Ingresos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.otrosIngresos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Otros Gastos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.otrosGastos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Utilidad Antes de Impuestos</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.utilidadAntesImpuestos >= 0 ? 'positive' : 'negative'}">${data.utilidadAntesImpuestos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Impuestos</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.impuestos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px; font-weight: bold;">UTILIDAD NETA</td>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px; text-align: right; font-weight: bold; font-size: 14px;" class="${data.utilidadNeta >= 0 ? 'positive' : 'negative'}">${data.utilidadNeta.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
+        <div class="results">
+          <h2>RESULTADOS</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td>UTILIDAD BRUTA</td>
+                <td class="number">${data.utilidadBruta.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>GASTOS OPERATIVOS</td>
+                <td class="number">${data.gastosOperativos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>UTILIDAD OPERATIVA</td>
+                <td class="number">${data.utilidadOperativa.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>OTROS INGRESOS</td>
+                <td class="number">${data.otrosIngresos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>OTROS GASTOS</td>
+                <td class="number">${data.otrosGastos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>UTILIDAD ANTES DE IMPUESTOS</td>
+                <td class="number">${data.utilidadAntesImpuestos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>IMPUESTOS</td>
+                <td class="number">${data.impuestos.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr class="total">
+                <td>UTILIDAD NETA</td>
+                <td class="number utilidad-neta">${data.utilidadNeta.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+            </tbody>
           </table>
         </div>
         
@@ -1145,54 +1141,48 @@ export class ReportesService {
     }
   }
 
-  // Exportación a Excel para Flujo de Efectivo
+  // Exportar Flujo de Efectivo a Excel
   static exportarFlujoEfectivoExcel(data: FlujoEfectivoData, empresaNombre: string): void {
     let content = `Flujo de Efectivo\n`;
     content += `${empresaNombre}\n`;
     content += `Período: ${data.fechaInicio ? new Date(data.fechaInicio).toLocaleDateString('es-PE') : 'Desde el inicio'} hasta ${data.fechaFin ? new Date(data.fechaFin).toLocaleDateString('es-PE') : 'la fecha actual'}\n`;
     content += `Generado: ${data.fechaGeneracion.toLocaleString('es-PE')}\n\n`;
 
-    // Saldo inicial
-    content += `SALDO INICIAL\t${data.saldoInicial.toFixed(2)}\n\n`;
-
-    // Actividades de operación
+    // Actividades de Operación
     content += `ACTIVIDADES DE OPERACIÓN\n`;
     data.operacion.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.movimientos.forEach(mov => {
-        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'}\t${mov.monto.toFixed(2)}\n`;
+        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'} ${mov.monto.toFixed(2)}\n`;
       });
     });
-    content += `FLUJO NETO DE OPERACIÓN\t${data.totalOperacion.toFixed(2)}\n\n`;
+    content += `FLUJO NETO DE OPERACIÓN\t\t${data.totalOperacion.toFixed(2)}\n\n`;
 
-    // Actividades de inversión
+    // Actividades de Inversión
     content += `ACTIVIDADES DE INVERSIÓN\n`;
     data.inversion.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.movimientos.forEach(mov => {
-        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'}\t${mov.monto.toFixed(2)}\n`;
+        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'} ${mov.monto.toFixed(2)}\n`;
       });
     });
-    content += `FLUJO NETO DE INVERSIÓN\t${data.totalInversion.toFixed(2)}\n\n`;
+    content += `FLUJO NETO DE INVERSIÓN\t\t${data.totalInversion.toFixed(2)}\n\n`;
 
-    // Actividades de financiamiento
+    // Actividades de Financiamiento
     content += `ACTIVIDADES DE FINANCIAMIENTO\n`;
     data.financiamiento.forEach(grupo => {
-      content += `${grupo.nombre}\t${grupo.total.toFixed(2)}\n`;
+      content += `${grupo.nombre}\t\t${grupo.total.toFixed(2)}\n`;
       grupo.movimientos.forEach(mov => {
-        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'}\t${mov.monto.toFixed(2)}\n`;
+        content += `\t${mov.descripcion}\t${mov.tipo === 'INGRESO' ? '+' : '-'} ${mov.monto.toFixed(2)}\n`;
       });
     });
-    content += `FLUJO NETO DE FINANCIAMIENTO\t${data.totalFinanciamiento.toFixed(2)}\n\n`;
+    content += `FLUJO NETO DE FINANCIAMIENTO\t\t${data.totalFinanciamiento.toFixed(2)}\n\n`;
 
     // Resumen
     content += `RESUMEN\n`;
-    content += `Flujo de Operación\t${data.totalOperacion.toFixed(2)}\n`;
-    content += `Flujo de Inversión\t${data.totalInversion.toFixed(2)}\n`;
-    content += `Flujo de Financiamiento\t${data.totalFinanciamiento.toFixed(2)}\n`;
-    content += `Flujo del Período\t${data.flujoPeriodo.toFixed(2)}\n`;
-    content += `Saldo Inicial\t${data.saldoInicial.toFixed(2)}\n`;
-    content += `Saldo Final\t${data.saldoFinal.toFixed(2)}\n`;
+    content += `Saldo Inicial\t\t${data.saldoInicial.toFixed(2)}\n`;
+    content += `Flujo del Período\t\t${data.flujoPeriodo.toFixed(2)}\n`;
+    content += `Saldo Final\t\t${data.saldoFinal.toFixed(2)}\n`;
 
     const blob = new Blob([content], { type: 'application/vnd.ms-excel;charset=utf-8;' });
     const link = document.createElement('a');
@@ -1205,7 +1195,7 @@ export class ReportesService {
     document.body.removeChild(link);
   }
 
-  // Exportación a PDF para Flujo de Efectivo
+  // Exportar Flujo de Efectivo a PDF
   static exportarFlujoEfectivoPDF(data: FlujoEfectivoData, empresaNombre: string): void {
     // Crear contenido HTML para PDF
     const htmlContent = `
@@ -1255,15 +1245,15 @@ export class ReportesService {
             font-weight: bold;
           }
           .group-header {
-            background-color: #e0e0e0;
-            font-weight: bold;
-          }
-          .total-row {
             background-color: #f0f0f0;
             font-weight: bold;
           }
           .number { 
             text-align: right; 
+          }
+          .total { 
+            font-weight: bold;
+            background-color: #f0f0f0;
           }
           .footer {
             margin-top: 30px;
@@ -1273,34 +1263,32 @@ export class ReportesService {
             border-top: 1px solid #ddd;
             padding-top: 10px;
           }
-          .summary-section {
-            margin-top: 30px;
-            padding: 15px;
-            border: 1px solid #ddd;
+          .summary {
+            margin-top: 20px;
+            padding: 10px;
             background-color: #f9f9f9;
+            border: 1px solid #ddd;
           }
-          .positive { color: #28a745; }
-          .negative { color: #dc3545; }
+          .positive {
+            color: #28a745;
+          }
+          .negative {
+            color: #dc3545;
+          }
         </style>
       </head>
       <body>
         <div class="header">
           <div class="company-name">${empresaNombre}</div>
-          <div class="report-title">ESTADO DE FLUJO DE EFECTIVO</div>
+          <div class="report-title">FLUJO DE EFECTIVO</div>
           <div class="period">
             Período: ${data.fechaInicio ? new Date(data.fechaInicio).toLocaleDateString('es-PE') : 'Desde el inicio'} 
             hasta ${data.fechaFin ? new Date(data.fechaFin).toLocaleDateString('es-PE') : 'la fecha actual'}
           </div>
         </div>
         
-        <!-- SALDO INICIAL -->
-        <div style="margin-bottom: 20px;">
-          <h3 style="margin-bottom: 10px;">SALDO INICIAL</h3>
-          <div style="font-size: 16px; font-weight: bold;">${data.saldoInicial.toLocaleString('es-PE', {minimumFractionDigits: 2})}</div>
-        </div>
-        
         <!-- ACTIVIDADES DE OPERACIÓN -->
-        <h3>ACTIVIDADES DE OPERACIÓN</h3>
+        <h2>ACTIVIDADES DE OPERACIÓN</h2>
         <table>
           <thead>
             <tr>
@@ -1321,7 +1309,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td>FLUJO NETO DE OPERACIÓN</td>
               <td class="number ${data.totalOperacion >= 0 ? 'positive' : 'negative'}">${data.totalOperacion.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -1329,7 +1317,7 @@ export class ReportesService {
         </table>
         
         <!-- ACTIVIDADES DE INVERSIÓN -->
-        <h3>ACTIVIDADES DE INVERSIÓN</h3>
+        <h2>ACTIVIDADES DE INVERSIÓN</h2>
         <table>
           <thead>
             <tr>
@@ -1350,7 +1338,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td>FLUJO NETO DE INVERSIÓN</td>
               <td class="number ${data.totalInversion >= 0 ? 'positive' : 'negative'}">${data.totalInversion.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -1358,7 +1346,7 @@ export class ReportesService {
         </table>
         
         <!-- ACTIVIDADES DE FINANCIAMIENTO -->
-        <h3>ACTIVIDADES DE FINANCIAMIENTO</h3>
+        <h2>ACTIVIDADES DE FINANCIAMIENTO</h2>
         <table>
           <thead>
             <tr>
@@ -1379,7 +1367,7 @@ export class ReportesService {
                 </tr>
               `).join('')}
             `).join('')}
-            <tr class="total-row">
+            <tr class="total">
               <td>FLUJO NETO DE FINANCIAMIENTO</td>
               <td class="number ${data.totalFinanciamiento >= 0 ? 'positive' : 'negative'}">${data.totalFinanciamiento.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
             </tr>
@@ -1387,33 +1375,23 @@ export class ReportesService {
         </table>
         
         <!-- RESUMEN -->
-        <div class="summary-section">
-          <h3 style="margin-top: 0;">RESUMEN</h3>
-          <table style="width: 100%; border: none;">
-            <tr>
-              <td style="border: none; width: 70%;">Flujo de Operación</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.totalOperacion >= 0 ? 'positive' : 'negative'}">${data.totalOperacion.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Flujo de Inversión</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.totalInversion >= 0 ? 'positive' : 'negative'}">${data.totalInversion.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Flujo de Financiamiento</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.totalFinanciamiento >= 0 ? 'positive' : 'negative'}">${data.totalFinanciamiento.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Flujo del Período</td>
-              <td style="border: none; text-align: right; font-weight: bold;" class="${data.flujoPeriodo >= 0 ? 'positive' : 'negative'}">${data.flujoPeriodo.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none;">Saldo Inicial</td>
-              <td style="border: none; text-align: right; font-weight: bold;">${data.saldoInicial.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
-            <tr>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px; font-weight: bold;">SALDO FINAL</td>
-              <td style="border: none; border-top: 1px solid #ddd; padding-top: 8px; text-align: right; font-weight: bold; font-size: 14px;" class="${data.saldoFinal >= 0 ? 'positive' : 'negative'}">${data.saldoFinal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
-            </tr>
+        <div class="summary">
+          <h2>RESUMEN</h2>
+          <table>
+            <tbody>
+              <tr>
+                <td>Saldo Inicial</td>
+                <td class="number">${data.saldoInicial.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr>
+                <td>Flujo del Período</td>
+                <td class="number ${data.flujoPeriodo >= 0 ? 'positive' : 'negative'}">${data.flujoPeriodo.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+              <tr class="total">
+                <td>Saldo Final</td>
+                <td class="number ${data.saldoFinal >= 0 ? 'positive' : 'negative'}">${data.saldoFinal.toLocaleString('es-PE', {minimumFractionDigits: 2})}</td>
+              </tr>
+            </tbody>
           </table>
         </div>
         
