@@ -14,6 +14,12 @@ if (!domain || !clientId) {
   console.error('Error: Variables de entorno de Auth0 no definidas');
 }
 
+// Log para depuración
+console.log('Auth0 Configuration:');
+console.log('Domain:', domain);
+console.log('Client ID:', clientId);
+console.log('Audience:', audience);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Auth0Provider
