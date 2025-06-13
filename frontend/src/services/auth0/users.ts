@@ -58,6 +58,13 @@ export class Auth0UsersService {
         console.log(`Recibidos ${users.length} usuarios de Auth0`);
       }
       
+      // Log the first user to debug role and permissions
+      if (users.length > 0) {
+        console.log('DEBUG - Primer usuario recibido:', users[0]);
+        console.log('DEBUG - Rol del primer usuario:', users[0].rol);
+        console.log('DEBUG - Permisos del primer usuario:', users[0].permisos);
+      }
+      
       return users;
     } catch (error) {
       console.error('Error obteniendo usuarios de Auth0:', error);
@@ -131,6 +138,10 @@ export class Auth0UsersService {
 
       console.log('Creando usuario en Auth0:', userData.email);
       console.log('Subdominio para el usuario:', subdominio);
+      console.log('Roles y permisos para el usuario:', {
+        rol: userData.rol,
+        permisos: permisos
+      });
 
       // Preparar datos para Auth0
       const requestData = {
@@ -244,6 +255,7 @@ export class Auth0UsersService {
       }
 
       console.log('Actualizando usuario en Auth0:', userId);
+      console.log('Datos de actualización:', userData);
 
       // Preparar datos para Auth0
       const requestData: any = {};

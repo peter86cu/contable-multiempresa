@@ -104,6 +104,13 @@ async function getAuth0Users(domain: string, token: string, params: any) {
 
     const users = await response.json();
     console.log(`Se obtuvieron ${users.length} usuarios de Auth0`);
+    
+    // Log the first user to debug
+    if (users.length > 0) {
+      console.log('DEBUG - Primer usuario de Auth0:', JSON.stringify(users[0], null, 2));
+      console.log('DEBUG - app_metadata:', users[0].app_metadata);
+    }
+    
     return users;
   } catch (error) {
     console.error('Error obteniendo usuarios de Auth0:', error);
@@ -115,6 +122,7 @@ async function getAuth0Users(domain: string, token: string, params: any) {
 async function createAuth0User(domain: string, token: string, userData: any) {
   try {
     console.log('Creando usuario en Auth0:', userData.email);
+    console.log('DEBUG - Datos de usuario para Auth0:', JSON.stringify(userData, null, 2));
     
     const response = await fetch(`https://${domain}/api/v2/users`, {
       method: 'POST',
@@ -145,6 +153,7 @@ async function createAuth0User(domain: string, token: string, userData: any) {
 async function updateAuth0User(domain: string, token: string, userId: string, userData: any) {
   try {
     console.log(`Actualizando usuario en Auth0: ${userId}`);
+    console.log('DEBUG - Datos de actualización:', JSON.stringify(userData, null, 2));
     
     const response = await fetch(`https://${domain}/api/v2/users/${userId}`, {
       method: 'PATCH',
@@ -297,6 +306,8 @@ Deno.serve(async (req) => {
           activo: !u.blocked
         }));
         
+        console.log('DEBUG - Usuarios mock mapeados:', JSON.stringify(usuariosMapeados[0], null, 2));
+        
         return new Response(
           JSON.stringify(usuariosMapeados),
           { 
@@ -326,6 +337,8 @@ Deno.serve(async (req) => {
           activo: !mockUser.blocked
         };
         
+        console.log('DEBUG - Usuario mock específico:', JSON.stringify(usuarioMapeado, null, 2));
+        
         return new Response(
           JSON.stringify(usuarioMapeado),
           { 
@@ -347,17 +360,21 @@ Deno.serve(async (req) => {
           created_at: new Date().toISOString()
         };
         
+        const responseData = {
+          id: mockUser.user_id,
+          email: mockUser.email,
+          nombre: mockUser.name,
+          rol: body.app_metadata?.rol || 'usuario',
+          empresasAsignadas: body.app_metadata?.empresas || [],
+          permisos: body.app_metadata?.permisos || [],
+          fechaCreacion: mockUser.created_at,
+          activo: true
+        };
+        
+        console.log('DEBUG - Usuario mock creado:', JSON.stringify(responseData, null, 2));
+        
         return new Response(
-          JSON.stringify({
-            id: mockUser.user_id,
-            email: mockUser.email,
-            nombre: mockUser.name,
-            rol: body.app_metadata?.rol || 'usuario',
-            empresasAsignadas: body.app_metadata?.empresas || [],
-            permisos: body.app_metadata?.permisos || [],
-            fechaCreacion: mockUser.created_at,
-            activo: true
-          }),
+          JSON.stringify(responseData),
           { 
             status: 201,
             headers: { 
@@ -459,18 +476,25 @@ Deno.serve(async (req) => {
           const usuarios = await getAuth0Users(envVars.AUTH0_DOMAIN!, managementToken, params);
 
           // Mapear usuarios a formato deseado
-          const usuariosMapeados = usuarios.map((u: any) => ({
-            id: u.user_id,
-            email: u.email,
-            nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
-            avatar: u.picture,
-            rol: u.app_metadata?.rol || 'usuario',
-            empresasAsignadas: u.app_metadata?.empresas || [],
-            permisos: u.app_metadata?.permisos || [],
-            fechaCreacion: u.created_at,
-            ultimaConexion: u.last_login,
-            activo: !u.blocked
-          }));
+          const usuariosMapeados = usuarios.map((u: any) => {
+            // Log each user's app_metadata for debugging
+            console.log(`DEBUG - Usuario ${u.email} app_metadata:`, JSON.stringify(u.app_metadata, null, 2));
+            
+            return {
+              id: u.user_id,
+              email: u.email,
+              nombre: u.name || u.nickname || u.email?.split('@')[0] || 'Usuario',
+              avatar: u.picture,
+              rol: u.app_metadata?.rol || 'usuario',
+              empresasAsignadas: u.app_metadata?.empresas || [],
+              permisos: u.app_metadata?.permisos || [],
+              fechaCreacion: u.created_at,
+              ultimaConexion: u.last_login,
+              activo: !u.blocked
+            };
+          });
+
+          console.log('DEBUG - Primer usuario mapeado:', JSON.stringify(usuariosMapeados[0], null, 2));
 
           // Devolver respuesta
           return new Response(
@@ -537,6 +561,8 @@ Deno.serve(async (req) => {
 
           const usuario = await response.json();
           console.log(`Usuario obtenido correctamente: ${usuario.user_id}`);
+          console.log('DEBUG - Usuario completo de Auth0:', JSON.stringify(usuario, null, 2));
+          console.log('DEBUG - app_metadata:', JSON.stringify(usuario.app_metadata, null, 2));
           
           // Mapear usuario a formato deseado
           const usuarioMapeado = {
@@ -551,6 +577,8 @@ Deno.serve(async (req) => {
             ultimaConexion: usuario.last_login,
             activo: !usuario.blocked
           };
+
+          console.log('DEBUG - Usuario mapeado:', JSON.stringify(usuarioMapeado, null, 2));
 
           // Devolver respuesta
           return new Response(
@@ -602,9 +630,11 @@ Deno.serve(async (req) => {
     else if (method === 'POST' && effectivePathLength === 0) {
       try {
         const body = await req.json();
+        console.log('DEBUG - Datos recibidos para crear usuario:', JSON.stringify(body, null, 2));
         
         // Crear usuario en Auth0
         const nuevoUsuario = await createAuth0User(envVars.AUTH0_DOMAIN!, managementToken, body);
+        console.log('DEBUG - Usuario creado en Auth0:', JSON.stringify(nuevoUsuario, null, 2));
         
         // Mapear usuario a formato deseado
         const usuarioMapeado = {
@@ -617,6 +647,8 @@ Deno.serve(async (req) => {
           fechaCreacion: nuevoUsuario.created_at,
           activo: true
         };
+
+        console.log('DEBUG - Usuario mapeado para respuesta:', JSON.stringify(usuarioMapeado, null, 2));
 
         // Devolver respuesta
         return new Response(
@@ -667,6 +699,7 @@ Deno.serve(async (req) => {
       try {
         const userId = pathSegments[pathSegments.length - 1];
         const body = await req.json();
+        console.log('DEBUG - Datos recibidos para actualizar usuario:', JSON.stringify(body, null, 2));
         
         // Verificar si el userId está codificado
         const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
@@ -674,6 +707,7 @@ Deno.serve(async (req) => {
         
         // Actualizar usuario en Auth0
         const usuarioActualizado = await updateAuth0User(envVars.AUTH0_DOMAIN!, managementToken, decodedUserId, body);
+        console.log('DEBUG - Usuario actualizado en Auth0:', JSON.stringify(usuarioActualizado, null, 2));
         
         // Mapear usuario a formato deseado
         const usuarioMapeado = {
@@ -687,6 +721,8 @@ Deno.serve(async (req) => {
           ultimaConexion: usuarioActualizado.last_login,
           activo: !usuarioActualizado.blocked
         };
+
+        console.log('DEBUG - Usuario mapeado para respuesta:', JSON.stringify(usuarioMapeado, null, 2));
 
         // Devolver respuesta
         return new Response(
