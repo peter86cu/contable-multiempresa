@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Usuario } from '../types';
+import { FirebaseAuthService } from '../config/firebaseAuth';
 
 interface AuthContextType {
   user: any;
@@ -51,6 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (auth0Authenticated && auth0User) {
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
+          
+          // Inicializar autenticación de Firebase para operaciones de base de datos
+          await FirebaseAuthService.initialize();
           
           // Obtener permisos y rol desde los metadatos de Auth0
           // Buscar en múltiples ubicaciones posibles
@@ -139,6 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Si no está autenticado y Auth0 ya terminó de cargar, limpiar usuario
           console.log('⚠️ No autenticado con Auth0');
           setUsuario(null);
+          
+          // Cerrar sesión en Firebase también
+          await FirebaseAuthService.signOut();
         }
       } catch (error) {
         console.error('Error inicializando autenticación:', error);
@@ -156,8 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loginWithRedirect();
   };
 
-  const logout = () => {
-    // Usar Auth0 para logout
+  const logout = async () => {
+    // Cerrar sesión en Firebase primero
+    await FirebaseAuthService.signOut();
+    
+    // Luego cerrar sesión en Auth0
     auth0Logout({ 
       logoutParams: {
         returnTo: window.location.origin 
