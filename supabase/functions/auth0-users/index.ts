@@ -281,6 +281,175 @@ function getMockUsers() {
   ];
 }
 
+// Función para devolver respuesta mock
+function getMockResponse(method: string, pathSegments: string[], effectivePathLength: number, body?: any) {
+  const mockUsers = getMockUsers();
+  
+  if (method === 'GET' && effectivePathLength === 0) {
+    // Devolver lista de usuarios mock
+    const usuariosMapeados = mockUsers.map((u: any) => ({
+      id: u.user_id,
+      email: u.email,
+      nombre: u.name || u.email?.split('@')[0] || 'Usuario',
+      avatar: u.picture,
+      rol: u.app_metadata?.rol || 'usuario',
+      empresasAsignadas: u.app_metadata?.empresas || [],
+      permisos: u.app_metadata?.permisos || [],
+      fechaCreacion: u.created_at,
+      ultimaConexion: u.last_login,
+      activo: !u.blocked
+    }));
+    
+    return new Response(
+      JSON.stringify(usuariosMapeados),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Mock-Data': 'true'
+        } 
+      }
+    );
+  } else if (method === 'GET' && effectivePathLength === 1) {
+    // Devolver usuario específico mock
+    const userId = pathSegments[pathSegments.length - 1];
+    const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+    
+    const mockUser = mockUsers.find(u => 
+      u.user_id === decodedUserId || 
+      u.user_id === `auth0|${decodedUserId}` ||
+      decodedUserId.includes(u.user_id.replace('auth0|', ''))
+    ) || mockUsers[0];
+    
+    const usuarioMapeado = {
+      id: mockUser.user_id,
+      email: mockUser.email,
+      nombre: mockUser.name || mockUser.email?.split('@')[0] || 'Usuario',
+      avatar: mockUser.picture,
+      rol: mockUser.app_metadata?.rol || 'usuario',
+      empresasAsignadas: mockUser.app_metadata?.empresas || [],
+      permisos: mockUser.app_metadata?.permisos || [],
+      fechaCreacion: mockUser.created_at,
+      ultimaConexion: mockUser.last_login,
+      activo: !mockUser.blocked
+    };
+    
+    return new Response(
+      JSON.stringify(usuarioMapeado),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Mock-Data': 'true'
+        } 
+      }
+    );
+  } else if (method === 'POST' && effectivePathLength === 0) {
+    // Simular creación de usuario
+    const mockUser = {
+      user_id: `auth0_${Date.now()}`,
+      email: body.email,
+      name: body.name,
+      app_metadata: body.app_metadata || {},
+      created_at: new Date().toISOString()
+    };
+    
+    const responseData = {
+      id: mockUser.user_id,
+      email: mockUser.email,
+      nombre: mockUser.name,
+      rol: body.app_metadata?.rol || 'usuario',
+      empresasAsignadas: body.app_metadata?.empresas || [],
+      permisos: body.app_metadata?.permisos || [],
+      fechaCreacion: mockUser.created_at,
+      activo: true
+    };
+    
+    return new Response(
+      JSON.stringify(responseData),
+      { 
+        status: 201,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Mock-Data': 'true'
+        } 
+      }
+    );
+  } else if (method === 'PATCH' && effectivePathLength === 1) {
+    // Simular actualización de usuario
+    const userId = pathSegments[pathSegments.length - 1];
+    const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
+    
+    const mockUser = mockUsers.find(u => 
+      u.user_id === decodedUserId || 
+      u.user_id === `auth0|${decodedUserId}` ||
+      decodedUserId.includes(u.user_id.replace('auth0|', ''))
+    ) || mockUsers[0];
+    
+    const updatedUser = {
+      ...mockUser,
+      name: body.name || mockUser.name,
+      app_metadata: {
+        ...mockUser.app_metadata,
+        ...body.app_metadata
+      }
+    };
+    
+    return new Response(
+      JSON.stringify({
+        id: updatedUser.user_id,
+        email: updatedUser.email,
+        nombre: updatedUser.name,
+        rol: updatedUser.app_metadata?.rol || 'usuario',
+        empresasAsignadas: updatedUser.app_metadata?.empresas || [],
+        permisos: updatedUser.app_metadata?.permisos || [],
+        fechaCreacion: updatedUser.created_at,
+        ultimaConexion: updatedUser.last_login,
+        activo: !updatedUser.blocked
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Mock-Data': 'true'
+        } 
+      }
+    );
+  } else if (method === 'DELETE' && effectivePathLength === 1) {
+    // Simular eliminación de usuario
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Usuario eliminado correctamente (simulado)'
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-Mock-Data': 'true'
+        } 
+      }
+    );
+  }
+  
+  // Endpoint no encontrado en modo mock
+  return new Response(
+    JSON.stringify({ 
+      message: 'Modo desarrollo: Endpoint no implementado en mock',
+      mockEnabled: true
+    }),
+    { 
+      status: 404, 
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-Mock-Data': 'true'
+      } 
+    }
+  );
+}
+
 // Función principal
 Deno.serve(async (req) => {
   // Manejar CORS
@@ -297,138 +466,34 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Obtener la URL y método de la solicitud
+    const url = new URL(req.url);
+    const method = req.method;
+    const pathSegments = url.pathname.split('/').filter(Boolean);
+    
+    // Calcular la longitud efectiva del path (restando '/functions/v1/auth0-users')
+    const effectivePathLength = Math.max(0, pathSegments.length - 3);
+    
+    // Obtener body si es necesario
+    let body = null;
+    if (['POST', 'PATCH'].includes(method)) {
+      try {
+        body = await req.json();
+      } catch (e) {
+        console.error('Error parsing request body:', e);
+      }
+    }
+
     // Validar variables de entorno
     const envVars = validateEnvironmentVariables();
     
-    // Si faltan variables de entorno, devolver datos mock en modo desarrollo
+    // Si faltan variables de entorno, devolver datos mock
     if (!envVars) {
       console.log('Faltan variables de entorno, devolviendo datos mock');
-      
-      // Obtener la URL y método de la solicitud
-      const url = new URL(req.url);
-      const method = req.method;
-      const pathSegments = url.pathname.split('/').filter(Boolean);
-      
-      // Calcular la longitud efectiva del path (restando '/functions/v1/auth0-users')
-      const effectivePathLength = Math.max(0, pathSegments.length - 3);
-      
-      // Manejar diferentes endpoints y métodos con datos mock
-      if (method === 'GET' && effectivePathLength === 0) {
-        // Devolver lista de usuarios mock
-        const mockUsers = getMockUsers();
-        
-        // Mapear usuarios a formato deseado
-        const usuariosMapeados = mockUsers.map((u: any) => ({
-          id: u.user_id,
-          email: u.email,
-          nombre: u.name || u.email?.split('@')[0] || 'Usuario',
-          avatar: u.picture,
-          rol: u.app_metadata?.rol || 'usuario',
-          empresasAsignadas: u.app_metadata?.empresas || [],
-          permisos: u.app_metadata?.permisos || [],
-          fechaCreacion: u.created_at,
-          ultimaConexion: u.last_login,
-          activo: !u.blocked
-        }));
-        
-        console.log('DEBUG - Usuarios mock mapeados:', JSON.stringify(usuariosMapeados[0], null, 2));
-        
-        return new Response(
-          JSON.stringify(usuariosMapeados),
-          { 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
-      } else if (method === 'GET' && effectivePathLength === 1) {
-        // Devolver usuario específico mock
-        const userId = pathSegments[pathSegments.length - 1];
-        const mockUsers = getMockUsers();
-        const mockUser = mockUsers.find(u => u.user_id === userId) || mockUsers[0];
-        
-        const usuarioMapeado = {
-          id: mockUser.user_id,
-          email: mockUser.email,
-          nombre: mockUser.name || mockUser.email?.split('@')[0] || 'Usuario',
-          avatar: mockUser.picture,
-          rol: mockUser.app_metadata?.rol || 'usuario',
-          empresasAsignadas: mockUser.app_metadata?.empresas || [],
-          permisos: mockUser.app_metadata?.permisos || [],
-          fechaCreacion: mockUser.created_at,
-          ultimaConexion: mockUser.last_login,
-          activo: !mockUser.blocked
-        };
-        
-        console.log('DEBUG - Usuario mock específico:', JSON.stringify(usuarioMapeado, null, 2));
-        
-        return new Response(
-          JSON.stringify(usuarioMapeado),
-          { 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
-      } else if (method === 'POST' && effectivePathLength === 0) {
-        // Simular creación de usuario
-        const body = await req.json();
-        const mockUser = {
-          user_id: `auth0_${Date.now()}`,
-          email: body.email,
-          name: body.name,
-          app_metadata: body.app_metadata || {},
-          created_at: new Date().toISOString()
-        };
-        
-        const responseData = {
-          id: mockUser.user_id,
-          email: mockUser.email,
-          nombre: mockUser.name,
-          rol: body.app_metadata?.rol || 'usuario',
-          empresasAsignadas: body.app_metadata?.empresas || [],
-          permisos: body.app_metadata?.permisos || [],
-          fechaCreacion: mockUser.created_at,
-          activo: true
-        };
-        
-        console.log('DEBUG - Usuario mock creado:', JSON.stringify(responseData, null, 2));
-        
-        return new Response(
-          JSON.stringify(responseData),
-          { 
-            status: 201,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
-      }
-      
-      // Si no se encuentra el endpoint en modo mock
-      return new Response(
-        JSON.stringify({ 
-          message: 'Modo desarrollo: Endpoint no implementado en mock',
-          mockEnabled: true
-        }),
-        { 
-          status: 404, 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'X-Mock-Data': 'true'
-          } 
-        }
-      );
+      return getMockResponse(method, pathSegments, effectivePathLength, body);
     }
 
-    // Obtener token de Auth0 Management API
+    // Intentar obtener token de Auth0 Management API
     let managementToken;
     try {
       managementToken = await getAuth0ManagementToken(
@@ -438,42 +503,10 @@ Deno.serve(async (req) => {
       );
     } catch (tokenError) {
       console.error('Error obteniendo token de Auth0 Management API:', tokenError);
-      
-      // Devolver datos mock en caso de error de token
-      const mockUsers = getMockUsers();
-      const usuariosMapeados = mockUsers.map((u: any) => ({
-        id: u.user_id,
-        email: u.email,
-        nombre: u.name || u.email?.split('@')[0] || 'Usuario',
-        avatar: u.picture,
-        rol: u.app_metadata?.rol || 'usuario',
-        empresasAsignadas: u.app_metadata?.empresas || [],
-        permisos: u.app_metadata?.permisos || [],
-        fechaCreacion: u.created_at,
-        ultimaConexion: u.last_login,
-        activo: !u.blocked
-      }));
-      
-      return new Response(
-        JSON.stringify(usuariosMapeados),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json',
-            'X-Mock-Data': 'true'
-          } 
-        }
-      );
+      console.log('Fallback a datos mock debido a error de token');
+      return getMockResponse(method, pathSegments, effectivePathLength, body);
     }
 
-    // Obtener la URL y método de la solicitud
-    const url = new URL(req.url);
-    const method = req.method;
-    const pathSegments = url.pathname.split('/').filter(Boolean);
-    
-    // Calcular la longitud efectiva del path (restando '/functions/v1/auth0-users')
-    const effectivePathLength = Math.max(0, pathSegments.length - 3);
-    
     // Manejar diferentes endpoints y métodos
     if (method === 'GET') {
       // Obtener usuarios
@@ -528,32 +561,8 @@ Deno.serve(async (req) => {
           );
         } catch (error) {
           console.error('Error obteniendo usuarios de Auth0:', error);
-          
-          // Devolver datos mock en caso de error
-          const mockUsers = getMockUsers();
-          const usuariosMapeados = mockUsers.map((u: any) => ({
-            id: u.user_id,
-            email: u.email,
-            nombre: u.name || u.email?.split('@')[0] || 'Usuario',
-            avatar: u.picture,
-            rol: u.app_metadata?.rol || 'usuario',
-            empresasAsignadas: u.app_metadata?.empresas || [],
-            permisos: u.app_metadata?.permisos || [],
-            fechaCreacion: u.created_at,
-            ultimaConexion: u.last_login,
-            activo: !u.blocked
-          }));
-          
-          return new Response(
-            JSON.stringify(usuariosMapeados),
-            { 
-              headers: { 
-                ...corsHeaders, 
-                'Content-Type': 'application/json',
-                'X-Mock-Data': 'true'
-              } 
-            }
-          );
+          console.log('Fallback a datos mock debido a error en obtención de usuarios');
+          return getMockResponse(method, pathSegments, effectivePathLength, body);
         }
       } 
       // Obtener usuario específico
@@ -612,49 +621,14 @@ Deno.serve(async (req) => {
           );
         } catch (error) {
           console.error('Error obteniendo usuario específico:', error);
-          
-          // Devolver usuario mock en caso de error
-          const mockUsers = getMockUsers();
-          const userId = pathSegments[pathSegments.length - 1];
-          const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
-          
-          // Buscar por ID exacto o por ID parcial (sin el prefijo auth0|)
-          const mockUser = mockUsers.find(u => 
-            u.user_id === decodedUserId || 
-            u.user_id === `auth0|${decodedUserId}` ||
-            decodedUserId.includes(u.user_id.replace('auth0|', ''))
-          ) || mockUsers[0];
-          
-          const usuarioMapeado = {
-            id: mockUser.user_id,
-            email: mockUser.email,
-            nombre: mockUser.name || mockUser.email?.split('@')[0] || 'Usuario',
-            avatar: mockUser.picture,
-            rol: mockUser.app_metadata?.rol || 'usuario',
-            empresasAsignadas: mockUser.app_metadata?.empresas || [],
-            permisos: mockUser.app_metadata?.permisos || [],
-            fechaCreacion: mockUser.created_at,
-            ultimaConexion: mockUser.last_login,
-            activo: !mockUser.blocked
-          };
-          
-          return new Response(
-            JSON.stringify(usuarioMapeado),
-            { 
-              headers: { 
-                ...corsHeaders, 
-                'Content-Type': 'application/json',
-                'X-Mock-Data': 'true'
-              } 
-            }
-          );
+          console.log('Fallback a datos mock debido a error en obtención de usuario específico');
+          return getMockResponse(method, pathSegments, effectivePathLength, body);
         }
       }
     } 
     // Crear usuario
     else if (method === 'POST' && effectivePathLength === 0) {
       try {
-        const body = await req.json();
         console.log('DEBUG - Datos recibidos para crear usuario:', JSON.stringify(body, null, 2));
         
         // Crear usuario en Auth0
@@ -685,45 +659,14 @@ Deno.serve(async (req) => {
         );
       } catch (error) {
         console.error('Error creando usuario:', error);
-        
-        // Simular creación en caso de error
-        const body = await req.json();
-        const mockUser = {
-          user_id: `auth0_${Date.now()}`,
-          email: body.email,
-          name: body.name,
-          app_metadata: body.app_metadata || {},
-          created_at: new Date().toISOString()
-        };
-        
-        return new Response(
-          JSON.stringify({
-            id: mockUser.user_id,
-            email: mockUser.email,
-            nombre: mockUser.name,
-            rol: body.app_metadata?.rol || 'usuario',
-            empresasAsignadas: body.app_metadata?.empresas || [],
-            permisos: body.app_metadata?.permisos || [],
-            fechaCreacion: mockUser.created_at,
-            activo: true,
-            mock: true
-          }),
-          { 
-            status: 201,
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
+        console.log('Fallback a datos mock debido a error en creación de usuario');
+        return getMockResponse(method, pathSegments, effectivePathLength, body);
       }
     } 
     // Actualizar usuario
     else if (method === 'PATCH' && effectivePathLength === 1) {
       try {
         const userId = pathSegments[pathSegments.length - 1];
-        const body = await req.json();
         console.log('DEBUG - Datos recibidos para actualizar usuario:', JSON.stringify(body, null, 2));
         
         // Verificar si el userId está codificado
@@ -756,53 +699,8 @@ Deno.serve(async (req) => {
         );
       } catch (error) {
         console.error('Error actualizando usuario:', error);
-        
-        // Simular actualización en caso de error
-        const userId = pathSegments[pathSegments.length - 1];
-        const body = await req.json();
-        
-        // Buscar usuario mock
-        const mockUsers = getMockUsers();
-        const decodedUserId = userId.includes('%7C') ? decodeURIComponent(userId) : userId;
-        
-        // Buscar por ID exacto o por ID parcial (sin el prefijo auth0|)
-        const mockUser = mockUsers.find(u => 
-          u.user_id === decodedUserId || 
-          u.user_id === `auth0|${decodedUserId}` ||
-          decodedUserId.includes(u.user_id.replace('auth0|', ''))
-        ) || mockUsers[0];
-        
-        // Actualizar datos
-        const updatedUser = {
-          ...mockUser,
-          name: body.name || mockUser.name,
-          app_metadata: {
-            ...mockUser.app_metadata,
-            ...body.app_metadata
-          }
-        };
-        
-        return new Response(
-          JSON.stringify({
-            id: updatedUser.user_id,
-            email: updatedUser.email,
-            nombre: updatedUser.name,
-            rol: updatedUser.app_metadata?.rol || 'usuario',
-            empresasAsignadas: updatedUser.app_metadata?.empresas || [],
-            permisos: updatedUser.app_metadata?.permisos || [],
-            fechaCreacion: updatedUser.created_at,
-            ultimaConexion: updatedUser.last_login,
-            activo: !updatedUser.blocked,
-            mock: true
-          }),
-          { 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
+        console.log('Fallback a datos mock debido a error en actualización de usuario');
+        return getMockResponse(method, pathSegments, effectivePathLength, body);
       }
     } 
     // Eliminar usuario
@@ -824,22 +722,8 @@ Deno.serve(async (req) => {
         );
       } catch (error) {
         console.error('Error eliminando usuario:', error);
-        
-        // Simular eliminación en caso de error
-        return new Response(
-          JSON.stringify({ 
-            success: true, 
-            message: 'Usuario eliminado correctamente (simulado)', 
-            mock: true 
-          }),
-          { 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json',
-              'X-Mock-Data': 'true'
-            } 
-          }
-        );
+        console.log('Fallback a datos mock debido a error en eliminación de usuario');
+        return getMockResponse(method, pathSegments, effectivePathLength, body);
       }
     }
 
@@ -854,17 +738,40 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error en Auth0 API:', error);
     
-    // Devolver respuesta de error con detalles
-    return new Response(
-      JSON.stringify({ 
-        error: 'Error al procesar la solicitud', 
-        details: error.message,
-        statusCode: error.statusCode || 500
-      }),
-      { 
-        status: error.statusCode || 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // En caso de error general, intentar devolver respuesta mock
+    try {
+      const url = new URL(req.url);
+      const method = req.method;
+      const pathSegments = url.pathname.split('/').filter(Boolean);
+      const effectivePathLength = Math.max(0, pathSegments.length - 3);
+      
+      let body = null;
+      if (['POST', 'PATCH'].includes(method)) {
+        try {
+          body = await req.json();
+        } catch (e) {
+          // Ignore body parsing errors in fallback
+        }
       }
-    );
+      
+      console.log('Fallback a datos mock debido a error general');
+      return getMockResponse(method, pathSegments, effectivePathLength, body);
+    } catch (fallbackError) {
+      console.error('Error en fallback mock:', fallbackError);
+      
+      // Devolver respuesta de error con detalles
+      return new Response(
+        JSON.stringify({ 
+          error: 'Error al procesar la solicitud', 
+          details: error.message,
+          statusCode: error.statusCode || 500,
+          mockFallbackFailed: true
+        }),
+        { 
+          status: error.statusCode || 500, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
   }
 });
