@@ -4,7 +4,24 @@
 import { PERMISOS_POR_ROL } from './roles';
 
 export class Auth0UsersService {
-  private static baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auth0-users`;
+  // Obtener la URL base de la Edge Function desde las variables de entorno
+  private static getBaseUrl(): string {
+    // Usar la URL de Supabase de las variables de entorno
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    
+    // Si no hay URL de Supabase, usar una URL por defecto para desarrollo
+    if (!supabaseUrl) {
+      console.warn('VITE_SUPABASE_URL no está definida, usando URL por defecto para desarrollo');
+      return 'http://localhost:54321/functions/v1/auth0-users';
+    }
+    
+    return `${supabaseUrl}/functions/v1/auth0-users`;
+  }
+
+  // Obtener el token de autenticación para la Edge Function
+  private static getAuthToken(): string {
+    return import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  }
 
   /**
    * Obtiene la lista de usuarios de Auth0
@@ -17,24 +34,28 @@ export class Auth0UsersService {
     query?: string;
   } = {}) {
     try {
-      // Verificar si estamos en modo desarrollo sin credenciales reales
-      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('Modo desarrollo: Simulando obtención de usuarios de Auth0', options);
-        return this.getMockUsers();
-      }
-
+      console.log('🔄 Obteniendo usuarios de Auth0...');
+      
       // Construir URL con parámetros
       const params = new URLSearchParams();
       if (options.page !== undefined) params.append('page', options.page.toString());
       if (options.perPage !== undefined) params.append('per_page', options.perPage.toString());
       if (options.query) params.append('q', options.query);
 
-      console.log(`Obteniendo usuarios de Auth0: ${this.baseUrl}?${params.toString()}`);
+      const baseUrl = this.getBaseUrl();
+      const url = `${baseUrl}?${params.toString()}`;
+      console.log(`📡 URL de solicitud: ${url}`);
+
+      // Obtener token de autenticación
+      const token = this.getAuthToken();
+      if (!token && !import.meta.env.DEV) {
+        console.warn('⚠️ No se encontró token de autenticación para Supabase');
+      }
 
       // Realizar petición a la Edge Function
-      const response = await fetch(`${this.baseUrl}?${params.toString()}`, {
+      const response = await fetch(url, {
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -52,31 +73,30 @@ export class Auth0UsersService {
       // Ensure data is always an array
       const users = Array.isArray(data) ? data : [];
       
-      // Log the first user to debug role and permissions
-      if (users.length > 0) {
-        console.log('DEBUG - Primer usuario recibido:', users[0]);
-        console.log('DEBUG - Rol del primer usuario:', users[0].rol);
-        console.log('DEBUG - Permisos del primer usuario:', users[0].permisos);
+      if (isMockData) {
+        console.log('⚠️ Recibidos datos mock de Auth0');
+      } else {
+        console.log(`✅ Recibidos ${users.length} usuarios de Auth0`);
       }
       
-      if (isMockData) {
-        console.log('Recibidos datos mock de Auth0');
-      } else {
-        console.log(`Recibidos ${users.length} usuarios de Auth0`);
+      // Log the first user to debug
+      if (users.length > 0) {
+        console.log('🔍 Primer usuario recibido:', users[0]);
+        console.log('🔍 Rol del primer usuario:', users[0].rol);
+        console.log('🔍 Permisos del primer usuario:', users[0].permisos);
       }
       
       return users;
     } catch (error) {
-      console.error('Error obteniendo usuarios de Auth0:', error);
+      console.error('❌ Error obteniendo usuarios de Auth0:', error);
       
       // En caso de error en desarrollo, devolver datos mock
       if (import.meta.env.DEV) {
-        console.log('Devolviendo datos mock como fallback');
+        console.log('⚠️ Devolviendo datos mock como fallback');
         return this.getMockUsers();
       }
       
-      // Always return an empty array instead of throwing error to prevent filter issues
-      return [];
+      throw error;
     }
   }
 
@@ -90,7 +110,7 @@ export class Auth0UsersService {
       const users = await this.getUsers({ query: `email:"${email}"` });
       return users.length > 0 ? users[0] : null;
     } catch (error) {
-      console.error('Error buscando usuario por email:', error);
+      console.error('❌ Error buscando usuario por email:', error);
       return null;
     }
   }
@@ -110,20 +130,8 @@ export class Auth0UsersService {
     subdominio?: string;
   }) {
     try {
-      // Verificar si estamos en modo desarrollo sin credenciales reales
-      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('Modo desarrollo: Simulando creación de usuario en Auth0', userData);
-        return {
-          id: `auth0_${Date.now()}`,
-          email: userData.email,
-          nombre: userData.name,
-          rol: userData.rol,
-          empresasAsignadas: userData.empresas,
-          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
-          fechaCreacion: new Date().toISOString()
-        };
-      }
-
+      console.log('🔄 Creando usuario en Auth0:', userData.email);
+      
       // Si no se proporcionan permisos, usar los del rol
       const permisos = userData.permisos || PERMISOS_POR_ROL[userData.rol] || [];
 
@@ -136,11 +144,13 @@ export class Auth0UsersService {
         }
       }
 
-      console.log('Creando usuario en Auth0:', userData.email);
-      console.log('Subdominio para el usuario:', subdominio);
-      console.log('Roles y permisos para el usuario:', {
+      console.log('📝 Datos para crear usuario:', {
+        email: userData.email,
+        name: userData.name,
         rol: userData.rol,
-        permisos: permisos
+        permisos,
+        empresas: userData.empresas,
+        subdominio
       });
 
       // Preparar datos para Auth0
@@ -161,11 +171,15 @@ export class Auth0UsersService {
         }
       };
 
+      // Obtener URL base y token
+      const baseUrl = this.getBaseUrl();
+      const token = this.getAuthToken();
+
       // Realizar petición a la Edge Function
-      const response = await fetch(`${this.baseUrl}`, {
+      const response = await fetch(baseUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
@@ -203,31 +217,31 @@ export class Auth0UsersService {
       const data = await response.json();
       
       if (isMockData) {
-        console.log('Recibidos datos mock de creación de usuario');
+        console.log('⚠️ Recibidos datos mock de creación de usuario');
       } else {
-        console.log('Usuario creado correctamente en Auth0:', data.id);
+        console.log('✅ Usuario creado correctamente en Auth0:', data.id);
       }
       
       return data;
     } catch (error) {
-      console.error('Error creando usuario en Auth0:', error);
+      console.error('❌ Error creando usuario en Auth0:', error);
       
-      // En caso de error en producción, propagar el error
-      if (!import.meta.env.DEV) {
-        throw error;
+      // En caso de error en desarrollo, devolver un usuario mock
+      if (import.meta.env.DEV) {
+        console.log('⚠️ Devolviendo usuario mock como fallback');
+        return {
+          id: `auth0_${Date.now()}`,
+          email: userData.email,
+          nombre: userData.name,
+          rol: userData.rol,
+          empresasAsignadas: userData.empresas,
+          permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
+          fechaCreacion: new Date().toISOString(),
+          mock: true
+        };
       }
       
-      // En desarrollo, devolver un usuario mock
-      return {
-        id: `auth0_${Date.now()}`,
-        email: userData.email,
-        nombre: userData.name,
-        rol: userData.rol,
-        empresasAsignadas: userData.empresas,
-        permisos: userData.permisos || PERMISOS_POR_ROL[userData.rol] || [],
-        fechaCreacion: new Date().toISOString(),
-        mock: true
-      };
+      throw error;
     }
   }
 
@@ -248,14 +262,8 @@ export class Auth0UsersService {
     blocked?: boolean;
   }) {
     try {
-      // Verificar si estamos en modo desarrollo sin credenciales reales
-      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('Modo desarrollo: Simulando actualización de usuario en Auth0', { userId, userData });
-        return { id: userId, ...userData };
-      }
-
-      console.log('Actualizando usuario en Auth0:', userId);
-      console.log('Datos de actualización:', userData);
+      console.log('🔄 Actualizando usuario en Auth0:', userId);
+      console.log('📝 Datos de actualización:', userData);
 
       // Preparar datos para Auth0
       const requestData: any = {};
@@ -276,11 +284,15 @@ export class Auth0UsersService {
         requestData.app_metadata = appMetadata;
       }
 
+      // Obtener URL base y token
+      const baseUrl = this.getBaseUrl();
+      const token = this.getAuthToken();
+
       // Realizar petición a la Edge Function
-      const response = await fetch(`${this.baseUrl}/${userId}`, {
+      const response = await fetch(`${baseUrl}/${userId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
@@ -318,26 +330,26 @@ export class Auth0UsersService {
       const data = await response.json();
       
       if (isMockData) {
-        console.log('Recibidos datos mock de actualización de usuario');
+        console.log('⚠️ Recibidos datos mock de actualización de usuario');
       } else {
-        console.log('Usuario actualizado correctamente en Auth0');
+        console.log('✅ Usuario actualizado correctamente en Auth0');
       }
       
       return data;
     } catch (error) {
-      console.error('Error actualizando usuario en Auth0:', error);
+      console.error('❌ Error actualizando usuario en Auth0:', error);
       
-      // En caso de error en producción, propagar el error
-      if (!import.meta.env.DEV) {
-        throw error;
+      // En caso de error en desarrollo, devolver datos simulados
+      if (import.meta.env.DEV) {
+        console.log('⚠️ Devolviendo datos simulados como fallback');
+        return { 
+          id: userId, 
+          ...userData, 
+          mock: true 
+        };
       }
       
-      // En desarrollo, devolver datos simulados
-      return { 
-        id: userId, 
-        ...userData, 
-        mock: true 
-      };
+      throw error;
     }
   }
 
@@ -348,17 +360,17 @@ export class Auth0UsersService {
    */
   static async deleteUser(userId: string) {
     try {
-      // Verificar si estamos en modo desarrollo sin credenciales reales
-      if (import.meta.env.DEV && !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-        console.log('Modo desarrollo: Simulando eliminación de usuario en Auth0', userId);
-        return true;
-      }
+      console.log('🔄 Eliminando usuario en Auth0:', userId);
+      
+      // Obtener URL base y token
+      const baseUrl = this.getBaseUrl();
+      const token = this.getAuthToken();
 
       // Realizar petición a la Edge Function
-      const response = await fetch(`${this.baseUrl}/${userId}`, {
+      const response = await fetch(`${baseUrl}/${userId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -389,17 +401,18 @@ export class Auth0UsersService {
         throw new Error(`Error eliminando usuario en Auth0: ${errorMessage}`);
       }
 
+      console.log('✅ Usuario eliminado correctamente en Auth0');
       return true;
     } catch (error) {
-      console.error('Error eliminando usuario en Auth0:', error);
+      console.error('❌ Error eliminando usuario en Auth0:', error);
       
-      // En caso de error en producción, propagar el error
-      if (!import.meta.env.DEV) {
-        throw error;
+      // En caso de error en desarrollo, simular éxito
+      if (import.meta.env.DEV) {
+        console.log('⚠️ Simulando eliminación exitosa en modo desarrollo');
+        return true;
       }
       
-      // En desarrollo, simular éxito
-      return true;
+      throw error;
     }
   }
 
