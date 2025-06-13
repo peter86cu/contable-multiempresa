@@ -43,12 +43,17 @@ AUTH0_MGMT_CLIENT_ID=tu-client-id-real
 AUTH0_MGMT_CLIENT_SECRET=tu-client-secret-real
 ```
 
-**IMPORTANTE**: Asegúrate de que el dominio incluya `.auth0.com` al final (ejemplo: `miempresa.auth0.com`)
+**IMPORTANTE**: 
+- Asegúrate de que el dominio incluya `.auth0.com` al final (ejemplo: `miempresa.auth0.com`)
+- El Client Secret debe ser exactamente como aparece en Auth0, sin sufijos adicionales
+- Verifica que no haya espacios en blanco al inicio o final de las credenciales
 
 ## 5. Desplegar la función Edge
 
+**IMPORTANTE**: Después de actualizar las credenciales, debes redesplegar la función para que los cambios surtan efecto.
+
 1. Asegúrate de que Supabase CLI esté instalado
-2. Ejecuta el siguiente comando para desplegar la función:
+2. Ejecuta el siguiente comando para redesplegar la función:
 
 ```bash
 supabase functions deploy auth0-users --project-ref tu-ref-de-proyecto
@@ -62,17 +67,36 @@ Para verificar que la configuración es correcta:
 2. Navega a **Applications** > **APIs** > **Auth0 Management API**
 3. En la pestaña **Machine to Machine Applications**, verifica que tu aplicación esté listada y autorizada
 4. Confirma que los permisos necesarios estén marcados
+5. **CRÍTICO**: Verifica que las credenciales en el archivo `.env` coincidan exactamente con las de Auth0
 
 ## Solución de problemas
 
 ### Error "Invalid JWT"
 
-Este error indica que las credenciales de Auth0 no son válidas. Verifica:
+Este error indica que las credenciales de Auth0 no son válidas o el token no se puede generar correctamente. Verifica:
 
-1. **Credenciales correctas**: Asegúrate de que `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID` y `AUTH0_MGMT_CLIENT_SECRET` sean exactamente los valores de tu aplicación M2M
+1. **Credenciales exactas**: Asegúrate de que `AUTH0_DOMAIN`, `AUTH0_MGMT_CLIENT_ID` y `AUTH0_MGMT_CLIENT_SECRET` sean exactamente los valores de tu aplicación M2M sin modificaciones
 2. **Formato del dominio**: El dominio debe incluir `.auth0.com` (ejemplo: `miempresa.auth0.com`)
-3. **Permisos**: Verifica que la aplicación M2M tenga los permisos necesarios para el Management API
-4. **Redespliegue**: Después de cambiar las variables de entorno, redespliega la función
+3. **Client Secret completo**: El Client Secret debe copiarse completo desde Auth0, sin agregar sufijos como `-auth0-management-client-secret`
+4. **Permisos**: Verifica que la aplicación M2M tenga los permisos necesarios para el Management API
+5. **Redespliegue obligatorio**: Después de cambiar las variables de entorno, SIEMPRE redespliega la función
+
+### Pasos para verificar credenciales:
+
+1. **En Auth0 Dashboard**:
+   - Ve a Applications > Applications
+   - Busca tu aplicación M2M "ContaEmpresa Management API"
+   - En Settings, copia exactamente Domain, Client ID y Client Secret
+   
+2. **En el archivo .env**:
+   - Pega las credenciales sin modificar
+   - No agregues sufijos o prefijos
+   - Verifica que no haya espacios en blanco
+
+3. **Redesplegar**:
+   ```bash
+   supabase functions deploy auth0-users --project-ref tu-ref-de-proyecto
+   ```
 
 ### Otros errores comunes
 
@@ -116,3 +140,14 @@ Si encuentras otros errores:
 Si no tienes configuradas las credenciales de Auth0, la función automáticamente usará datos mock para desarrollo. Esto te permite probar la aplicación sin configurar Auth0 inicialmente.
 
 Para usar datos reales de Auth0, asegúrate de configurar correctamente las variables de entorno como se describe arriba.
+
+## Checklist de verificación
+
+Antes de reportar problemas, verifica:
+
+- [ ] Las credenciales en `.env` coinciden exactamente con las de Auth0
+- [ ] El dominio incluye `.auth0.com`
+- [ ] El Client Secret está completo y sin modificaciones
+- [ ] La aplicación M2M tiene los permisos necesarios
+- [ ] Has redesplegado la función después de cambiar credenciales
+- [ ] No hay espacios en blanco en las credenciales
