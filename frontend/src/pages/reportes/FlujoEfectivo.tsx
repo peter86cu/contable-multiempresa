@@ -18,34 +18,7 @@ import {
 } from 'lucide-react';
 import { useSesion } from '../../context/SesionContext';
 import { useAuth } from '../../context/AuthContext';
-
-// Tipo para el flujo de efectivo
-interface FlujoEfectivoData {
-  operacion: GrupoFlujo[];
-  inversion: GrupoFlujo[];
-  financiamiento: GrupoFlujo[];
-  totalOperacion: number;
-  totalInversion: number;
-  totalFinanciamiento: number;
-  flujoPeriodo: number;
-  saldoInicial: number;
-  saldoFinal: number;
-  fechaGeneracion: Date;
-  fechaInicio?: string;
-  fechaFin?: string;
-}
-
-interface GrupoFlujo {
-  nombre: string;
-  movimientos: MovimientoFlujo[];
-  total: number;
-}
-
-interface MovimientoFlujo {
-  descripcion: string;
-  monto: number;
-  tipo: 'INGRESO' | 'EGRESO';
-}
+import { ReportesService, FlujoEfectivoData } from '../../services/firebase/reportes';
 
 export const FlujoEfectivo: React.FC = () => {
   const { empresaActual, paisActual, formatearMoneda } = useSesion();
@@ -69,77 +42,13 @@ export const FlujoEfectivo: React.FC = () => {
     setError(null);
     
     try {
-      // Simulamos una carga de datos
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const data = await ReportesService.generarFlujoEfectivo(
+        empresaActual.id,
+        fechaInicio || undefined,
+        fechaFin || undefined
+      );
       
-      // Datos de ejemplo para el flujo de efectivo
-      const mockFlujoData: FlujoEfectivoData = {
-        operacion: [
-          {
-            nombre: 'INGRESOS OPERACIONALES',
-            movimientos: [
-              { descripcion: 'Cobros a clientes', monto: 120000, tipo: 'INGRESO' },
-              { descripcion: 'Otros cobros operativos', monto: 5000, tipo: 'INGRESO' }
-            ],
-            total: 125000
-          },
-          {
-            nombre: 'EGRESOS OPERACIONALES',
-            movimientos: [
-              { descripcion: 'Pagos a proveedores', monto: 70000, tipo: 'EGRESO' },
-              { descripcion: 'Pagos a empleados', monto: 15000, tipo: 'EGRESO' },
-              { descripcion: 'Pagos de impuestos', monto: 10000, tipo: 'EGRESO' },
-              { descripcion: 'Otros pagos operativos', monto: 5000, tipo: 'EGRESO' }
-            ],
-            total: -100000
-          }
-        ],
-        inversion: [
-          {
-            nombre: 'INGRESOS DE INVERSIÓN',
-            movimientos: [
-              { descripcion: 'Venta de activos fijos', monto: 5000, tipo: 'INGRESO' }
-            ],
-            total: 5000
-          },
-          {
-            nombre: 'EGRESOS DE INVERSIÓN',
-            movimientos: [
-              { descripcion: 'Compra de activos fijos', monto: 20000, tipo: 'EGRESO' },
-              { descripcion: 'Inversiones financieras', monto: 5000, tipo: 'EGRESO' }
-            ],
-            total: -25000
-          }
-        ],
-        financiamiento: [
-          {
-            nombre: 'INGRESOS DE FINANCIAMIENTO',
-            movimientos: [
-              { descripcion: 'Préstamos recibidos', monto: 30000, tipo: 'INGRESO' }
-            ],
-            total: 30000
-          },
-          {
-            nombre: 'EGRESOS DE FINANCIAMIENTO',
-            movimientos: [
-              { descripcion: 'Pago de préstamos', monto: 10000, tipo: 'EGRESO' },
-              { descripcion: 'Pago de dividendos', monto: 5000, tipo: 'EGRESO' }
-            ],
-            total: -15000
-          }
-        ],
-        totalOperacion: 25000,
-        totalInversion: -20000,
-        totalFinanciamiento: 15000,
-        flujoPeriodo: 20000,
-        saldoInicial: 30000,
-        saldoFinal: 50000,
-        fechaGeneracion: new Date(),
-        fechaInicio: fechaInicio || undefined,
-        fechaFin: fechaFin || undefined
-      };
-      
-      setFlujoData(mockFlujoData);
+      setFlujoData(data);
     } catch (err) {
       console.error('Error generando flujo de efectivo:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -150,18 +59,11 @@ export const FlujoEfectivo: React.FC = () => {
 
   // Exportar a Excel
   const handleExportExcel = async () => {
-    if (!flujoData) return;
+    if (!flujoData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a Excel:', flujoData);
-      
-      // Mostrar alerta de éxito
-      alert('Flujo de Efectivo exportado a Excel correctamente');
+      ReportesService.exportarFlujoEfectivoExcel(flujoData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a Excel:', error);
       alert('Error al exportar a Excel');
@@ -172,18 +74,11 @@ export const FlujoEfectivo: React.FC = () => {
 
   // Exportar a PDF
   const handleExportPDF = async () => {
-    if (!flujoData) return;
+    if (!flujoData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a PDF:', flujoData);
-      
-      // Mostrar alerta de éxito
-      alert('Flujo de Efectivo exportado a PDF correctamente');
+      ReportesService.exportarFlujoEfectivoPDF(flujoData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a PDF:', error);
       alert('Error al exportar a PDF');

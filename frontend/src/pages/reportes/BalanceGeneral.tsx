@@ -17,31 +17,7 @@ import {
 } from 'lucide-react';
 import { useSesion } from '../../context/SesionContext';
 import { useAuth } from '../../context/AuthContext';
-
-// Tipo para el balance general
-interface BalanceGeneralData {
-  activos: GrupoBalance[];
-  pasivos: GrupoBalance[];
-  patrimonio: GrupoBalance[];
-  totalActivos: number;
-  totalPasivos: number;
-  totalPatrimonio: number;
-  fechaGeneracion: Date;
-  fechaInicio?: string;
-  fechaFin?: string;
-}
-
-interface GrupoBalance {
-  nombre: string;
-  cuentas: CuentaBalance[];
-  total: number;
-}
-
-interface CuentaBalance {
-  codigo: string;
-  nombre: string;
-  saldo: number;
-}
+import { ReportesService, BalanceGeneralData } from '../../services/firebase/reportes';
 
 export const BalanceGeneral: React.FC = () => {
   const { empresaActual, paisActual, formatearMoneda } = useSesion();
@@ -65,66 +41,13 @@ export const BalanceGeneral: React.FC = () => {
     setError(null);
     
     try {
-      // Simulamos una carga de datos
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const data = await ReportesService.generarBalanceGeneral(
+        empresaActual.id,
+        fechaInicio || undefined,
+        fechaFin || undefined
+      );
       
-      // Datos de ejemplo para el balance general
-      const mockBalanceData: BalanceGeneralData = {
-        activos: [
-          {
-            nombre: 'ACTIVO CORRIENTE',
-            cuentas: [
-              { codigo: '10', nombre: 'EFECTIVO Y EQUIVALENTES DE EFECTIVO', saldo: 25000 },
-              { codigo: '12', nombre: 'CUENTAS POR COBRAR COMERCIALES', saldo: 15000 },
-              { codigo: '20', nombre: 'MERCADERÍAS', saldo: 30000 }
-            ],
-            total: 70000
-          },
-          {
-            nombre: 'ACTIVO NO CORRIENTE',
-            cuentas: [
-              { codigo: '33', nombre: 'INMUEBLES, MAQUINARIA Y EQUIPO', saldo: 120000 },
-              { codigo: '39', nombre: 'DEPRECIACIÓN ACUMULADA', saldo: -20000 }
-            ],
-            total: 100000
-          }
-        ],
-        pasivos: [
-          {
-            nombre: 'PASIVO CORRIENTE',
-            cuentas: [
-              { codigo: '40', nombre: 'TRIBUTOS POR PAGAR', saldo: 5000 },
-              { codigo: '42', nombre: 'CUENTAS POR PAGAR COMERCIALES', saldo: 25000 }
-            ],
-            total: 30000
-          },
-          {
-            nombre: 'PASIVO NO CORRIENTE',
-            cuentas: [
-              { codigo: '45', nombre: 'OBLIGACIONES FINANCIERAS', saldo: 40000 }
-            ],
-            total: 40000
-          }
-        ],
-        patrimonio: [
-          {
-            nombre: 'PATRIMONIO',
-            cuentas: [
-              { codigo: '50', nombre: 'CAPITAL', saldo: 80000 },
-              { codigo: '59', nombre: 'RESULTADOS ACUMULADOS', saldo: 20000 }
-            ],
-            total: 100000
-          }
-        ],
-        totalActivos: 170000,
-        totalPasivos: 70000,
-        totalPatrimonio: 100000,
-        fechaGeneracion: new Date(),
-        fechaInicio: fechaInicio || undefined,
-        fechaFin: fechaFin || undefined
-      };
-      
-      setBalanceData(mockBalanceData);
+      setBalanceData(data);
     } catch (err) {
       console.error('Error generando balance general:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -135,18 +58,11 @@ export const BalanceGeneral: React.FC = () => {
 
   // Exportar a Excel
   const handleExportExcel = async () => {
-    if (!balanceData) return;
+    if (!balanceData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a Excel:', balanceData);
-      
-      // Mostrar alerta de éxito
-      alert('Balance General exportado a Excel correctamente');
+      ReportesService.exportarBalanceGeneralExcel(balanceData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a Excel:', error);
       alert('Error al exportar a Excel');
@@ -157,18 +73,11 @@ export const BalanceGeneral: React.FC = () => {
 
   // Exportar a PDF
   const handleExportPDF = async () => {
-    if (!balanceData) return;
+    if (!balanceData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a PDF:', balanceData);
-      
-      // Mostrar alerta de éxito
-      alert('Balance General exportado a PDF correctamente');
+      ReportesService.exportarBalanceGeneralPDF(balanceData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a PDF:', error);
       alert('Error al exportar a PDF');

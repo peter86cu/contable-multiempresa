@@ -17,37 +17,7 @@ import {
 } from 'lucide-react';
 import { useSesion } from '../../context/SesionContext';
 import { useAuth } from '../../context/AuthContext';
-
-// Tipo para el estado de resultados
-interface EstadoResultadosData {
-  ingresos: GrupoResultado[];
-  gastos: GrupoResultado[];
-  totalIngresos: number;
-  totalGastos: number;
-  utilidadBruta: number;
-  gastosOperativos: number;
-  utilidadOperativa: number;
-  otrosIngresos: number;
-  otrosGastos: number;
-  utilidadAntesImpuestos: number;
-  impuestos: number;
-  utilidadNeta: number;
-  fechaGeneracion: Date;
-  fechaInicio?: string;
-  fechaFin?: string;
-}
-
-interface GrupoResultado {
-  nombre: string;
-  cuentas: CuentaResultado[];
-  total: number;
-}
-
-interface CuentaResultado {
-  codigo: string;
-  nombre: string;
-  saldo: number;
-}
+import { ReportesService, EstadoResultadosData } from '../../services/firebase/reportes';
 
 export const EstadoResultados: React.FC = () => {
   const { empresaActual, paisActual, formatearMoneda } = useSesion();
@@ -71,70 +41,13 @@ export const EstadoResultados: React.FC = () => {
     setError(null);
     
     try {
-      // Simulamos una carga de datos
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      const data = await ReportesService.generarEstadoResultados(
+        empresaActual.id,
+        fechaInicio || undefined,
+        fechaFin || undefined
+      );
       
-      // Datos de ejemplo para el estado de resultados
-      const mockResultadosData: EstadoResultadosData = {
-        ingresos: [
-          {
-            nombre: 'INGRESOS OPERACIONALES',
-            cuentas: [
-              { codigo: '70', nombre: 'VENTAS', saldo: 120000 },
-              { codigo: '73', nombre: 'DESCUENTOS Y REBAJAS', saldo: -5000 }
-            ],
-            total: 115000
-          },
-          {
-            nombre: 'OTROS INGRESOS',
-            cuentas: [
-              { codigo: '75', nombre: 'OTROS INGRESOS DE GESTIÓN', saldo: 3000 },
-              { codigo: '77', nombre: 'INGRESOS FINANCIEROS', saldo: 2000 }
-            ],
-            total: 5000
-          }
-        ],
-        gastos: [
-          {
-            nombre: 'COSTO DE VENTAS',
-            cuentas: [
-              { codigo: '69', nombre: 'COSTO DE VENTAS', saldo: 70000 }
-            ],
-            total: 70000
-          },
-          {
-            nombre: 'GASTOS OPERATIVOS',
-            cuentas: [
-              { codigo: '62', nombre: 'GASTOS DE PERSONAL', saldo: 15000 },
-              { codigo: '63', nombre: 'SERVICIOS PRESTADOS POR TERCEROS', saldo: 8000 },
-              { codigo: '65', nombre: 'OTROS GASTOS DE GESTIÓN', saldo: 5000 }
-            ],
-            total: 28000
-          },
-          {
-            nombre: 'GASTOS FINANCIEROS',
-            cuentas: [
-              { codigo: '67', nombre: 'GASTOS FINANCIEROS', saldo: 2000 }
-            ],
-            total: 2000
-          }
-        ],
-        totalIngresos: 120000,
-        totalGastos: 100000,
-        utilidadBruta: 50000,
-        gastosOperativos: 28000,
-        utilidadOperativa: 22000,
-        otrosIngresos: 5000,
-        otrosGastos: 2000,
-        utilidadAntesImpuestos: 25000,
-        impuestos: 5000,
-        utilidadNeta: 20000,
-        fechaGeneracion: new Date(),
-        fechaInicio: fechaInicio || undefined,
-        fechaFin: fechaFin || undefined
-      };
-      
-      setResultadosData(mockResultadosData);
+      setResultadosData(data);
     } catch (err) {
       console.error('Error generando estado de resultados:', err);
       setError(err instanceof Error ? err.message : 'Error desconocido');
@@ -145,18 +58,11 @@ export const EstadoResultados: React.FC = () => {
 
   // Exportar a Excel
   const handleExportExcel = async () => {
-    if (!resultadosData) return;
+    if (!resultadosData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a Excel:', resultadosData);
-      
-      // Mostrar alerta de éxito
-      alert('Estado de Resultados exportado a Excel correctamente');
+      ReportesService.exportarEstadoResultadosExcel(resultadosData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a Excel:', error);
       alert('Error al exportar a Excel');
@@ -167,18 +73,11 @@ export const EstadoResultados: React.FC = () => {
 
   // Exportar a PDF
   const handleExportPDF = async () => {
-    if (!resultadosData) return;
+    if (!resultadosData || !empresaActual) return;
     
     setExporting(true);
     try {
-      // Simulamos la exportación
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Aquí iría la lógica real de exportación
-      console.log('Exportando a PDF:', resultadosData);
-      
-      // Mostrar alerta de éxito
-      alert('Estado de Resultados exportado a PDF correctamente');
+      ReportesService.exportarEstadoResultadosPDF(resultadosData, empresaActual.nombre);
     } catch (error) {
       console.error('Error exportando a PDF:', error);
       alert('Error al exportar a PDF');
