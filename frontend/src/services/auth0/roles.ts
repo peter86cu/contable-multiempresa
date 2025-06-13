@@ -46,7 +46,7 @@ export const PERMISOS_POR_ROL = {
     PERMISOS.USUARIOS_WRITE
   ],
   [ROLES.ADMIN_EMPRESA]: [
-    PERMISOS.ADMIN_ALL,
+    PERMISOS.ADMIN_ALL,  // Aseguramos que admin_empresa siempre tenga admin:all
     PERMISOS.EMPRESAS_READ,
     PERMISOS.EMPRESAS_WRITE,
     PERMISOS.CONTABILIDAD_READ,
@@ -60,7 +60,8 @@ export const PERMISOS_POR_ROL = {
     PERMISOS.EMPRESAS_READ,
     PERMISOS.CONTABILIDAD_READ,
     PERMISOS.CONTABILIDAD_WRITE,
-    PERMISOS.FINANZAS_READ
+    PERMISOS.FINANZAS_READ,
+    PERMISOS.FINANZAS_WRITE
   ],
   [ROLES.USUARIO]: [
     PERMISOS.EMPRESAS_READ,
@@ -128,6 +129,15 @@ export const PERMISOS_POR_CATEGORIA = {
  * @returns Array de permisos
  */
 export function getPermisosPorRol(rol: string): string[] {
+  // Si el rol es admin_empresa o super_admin, asegurarse de que tenga admin:all
+  if (rol === ROLES.ADMIN_EMPRESA || rol === ROLES.SUPER_ADMIN) {
+    const permisos = PERMISOS_POR_ROL[rol as keyof typeof PERMISOS_POR_ROL] || [];
+    if (!permisos.includes(PERMISOS.ADMIN_ALL)) {
+      return [PERMISOS.ADMIN_ALL, ...permisos];
+    }
+    return permisos;
+  }
+  
   return PERMISOS_POR_ROL[rol as keyof typeof PERMISOS_POR_ROL] || [];
 }
 
@@ -180,10 +190,16 @@ export function prepararMetadatosAuth0(
   empresas: string[],
   subdominio?: string
 ) {
+  // Asegurarse de que si el rol es admin_empresa o super_admin, tenga admin:all
+  let permisosFinales = [...permisos];
+  if ((rol === ROLES.ADMIN_EMPRESA || rol === ROLES.SUPER_ADMIN) && !permisosFinales.includes(PERMISOS.ADMIN_ALL)) {
+    permisosFinales = [PERMISOS.ADMIN_ALL, ...permisosFinales];
+  }
+  
   return {
     app_metadata: {
       rol,
-      permisos,
+      permisos: permisosFinales,
       empresas,
       subdominio: subdominio || empresas[0] || ''
     }

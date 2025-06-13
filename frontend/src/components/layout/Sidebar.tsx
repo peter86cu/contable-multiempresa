@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // Verificar si el usuario tiene el permiso admin:all
+  // Verificar si el usuario tiene el permiso admin:all o es admin
   const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
   const isAdmin = usuario?.rol === 'admin_empresa' || usuario?.rol === 'super_admin';
   
@@ -202,7 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           {menuItems.map((item) => {
             // IMPORTANTE: Si el usuario tiene admin:all o es admin, mostrar TODOS los menús
             // Si no, verificar el permiso específico
-            const tienePermiso = isAdmin || hasAdminAll || 
+            const tienePermiso = hasAdminAll || isAdmin || 
                                item.permiso === null || 
                                (item.permiso && hasPermission(item.permiso));
             
@@ -236,7 +236,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         {item.submenu.map((subItem) => {
                           // IMPORTANTE: Si el usuario tiene admin:all o es admin, mostrar TODOS los submenús
                           // Si no, verificar el permiso específico
-                          const tienePermisoSub = isAdmin || hasAdminAll || 
+                          const tienePermisoSub = hasAdminAll || isAdmin || 
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
                           

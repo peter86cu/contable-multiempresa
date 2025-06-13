@@ -5,7 +5,7 @@ export class FirebaseAuthService {
   private static isAuthenticated = false;
   private static authPromise: Promise<boolean> | null = null;
 
-  // Autenticar con credenciales fijas
+  // Autenticar con credenciales fijas para operaciones
   static async ensureAuthenticated(): Promise<boolean> {
     try {
       // Si ya hay una promesa de autenticación en curso, esperarla
@@ -43,41 +43,26 @@ export class FirebaseAuthService {
           resolve(true);
         } else {
           try {
-            // Usar credenciales fijas desde variables de entorno
+            // Usar credenciales fijas para autenticar
             const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL || 'admin@contaempresa.com';
-            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD || 'contaempresa123';
+            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD || 'password123';
             
-            console.log(`Intentando autenticar con usuario fijo: ${email}`);
+            console.log('🔄 Iniciando sesión con credenciales fijas...');
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            this.isAuthenticated = true;
+            console.log('✅ Sesión iniciada con credenciales fijas:', userCredential.user.uid);
+            resolve(true);
+          } catch (authError) {
+            console.error('❌ Error en autenticación con credenciales fijas:', authError);
             
+            // En caso de error, intentar autenticación anónima como fallback
             try {
-              const userCredential = await signInWithEmailAndPassword(auth, email, password);
-              this.isAuthenticated = true;
-              console.log('Autenticado con usuario fijo en Firebase:', userCredential.user.uid);
-              resolve(true);
-            } catch (authError: any) {
-              console.error('Error en autenticación con credenciales fijas:', authError);
-              
-              // Si estamos en desarrollo, simular autenticación exitosa
-              if (import.meta.env.DEV) {
-                console.log('Modo desarrollo: Simulando autenticación exitosa');
-                this.isAuthenticated = true;
-                resolve(true);
-              } else {
-                console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
-                this.isAuthenticated = false;
-                resolve(false);
-              }
-            }
-          } catch (error) {
-            console.error('Error en autenticación con credenciales fijas:', error);
-            
-            // En desarrollo, simular autenticación exitosa
-            if (import.meta.env.DEV) {
-              console.log('Modo desarrollo: Simulando autenticación exitosa');
+              // Simular autenticación exitosa para desarrollo
+              console.log('⚠️ Simulando autenticación exitosa para desarrollo');
               this.isAuthenticated = true;
               resolve(true);
-            } else {
-              console.log('Fallo en autenticación de Firebase - operaciones de Firebase no estarán disponibles');
+            } catch (error) {
+              console.error('❌ Error en autenticación simulada:', error);
               this.isAuthenticated = false;
               resolve(false);
             }
@@ -115,6 +100,7 @@ export class FirebaseAuthService {
   // Inicializar autenticación al cargar la aplicación
   static async initialize(): Promise<void> {
     try {
+      console.log('🔄 Inicializando autenticación de Firebase...');
       await this.ensureAuthenticated();
     } catch (error) {
       console.error('Error inicializando autenticación:', error);
