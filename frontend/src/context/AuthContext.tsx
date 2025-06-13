@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Usuario } from '../types';
+import { PERMISOS, PERMISOS_POR_ROL } from '../services/auth0/roles';
 
 interface AuthContextType {
   user: any;
@@ -88,9 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (rol === 'admin_empresa' || rol === 'super_admin') {
               permisos = ['admin:all'];
             } else if (rol === 'contador') {
-              permisos = ['contabilidad:read', 'contabilidad:write', 'finanzas:read'];
+              permisos = ['contabilidad:read', 'contabilidad:write', 'finanzas:read', 'finanzas:write'];
             } else {
-              permisos = ['contabilidad:read'];
+              permisos = ['contabilidad:read', 'finanzas:read'];
             }
           }
           
@@ -171,6 +172,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasAccess = (empresaId: string): boolean => {
     if (!usuario) return false;
+    
+    // Si el usuario es admin, tiene acceso a todas las empresas
+    if (usuario.rol === 'super_admin' || usuario.rol === 'admin_empresa') {
+      return true;
+    }
+    
     return usuario.empresasAsignadas.includes(empresaId);
   };
 
@@ -179,6 +186,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!usuario) {
       console.log(`❌ Sin usuario autenticado, permiso ${permiso} denegado`);
       return false;
+    }
+    
+    // Si el usuario es admin, tiene todos los permisos
+    if (usuario.rol === 'super_admin' || usuario.rol === 'admin_empresa') {
+      console.log(`✅ Permiso ${permiso} concedido por rol ${usuario.rol}`);
+      return true;
     }
     
     // Si tiene admin:all, tiene todos los permisos
