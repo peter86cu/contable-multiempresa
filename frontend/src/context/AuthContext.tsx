@@ -195,6 +195,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     
+    // Si el rol es admin_empresa o super_admin, tiene todos los permisos
+    if (usuario.rol === 'admin_empresa' || usuario.rol === 'super_admin') {
+      console.log(`✅ Permiso ${permiso} concedido por rol ${usuario.rol}`);
+      return true;
+    }
+    
     const tienePermiso = usuario.permisos.includes(permiso);
     console.log(`🔍 Verificando permiso ${permiso}: ${tienePermiso ? '✅ Sí' : '❌ No'}`);
     console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);

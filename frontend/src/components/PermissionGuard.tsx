@@ -18,13 +18,21 @@ export const PermissionGuard: React.FC<PermissionGuardProps> = ({
   requiredPermission,
   fallback = null
 }) => {
-  const { hasPermission } = useAuth();
+  const { hasPermission, usuario } = useAuth();
+  
+  // Si el usuario es admin_empresa o super_admin, siempre mostrar el contenido
+  if (usuario?.rol === 'admin_empresa' || usuario?.rol === 'super_admin') {
+    console.log(`✅ PermissionGuard: Acceso concedido a ${requiredPermission} por rol ${usuario.rol}`);
+    return <>{children}</>;
+  }
   
   // Si el usuario tiene el permiso, mostrar el contenido
   if (hasPermission(requiredPermission)) {
+    console.log(`✅ PermissionGuard: Acceso concedido a ${requiredPermission} por permiso`);
     return <>{children}</>;
   }
   
   // Si no tiene el permiso, mostrar el contenido alternativo
+  console.log(`❌ PermissionGuard: Acceso denegado a ${requiredPermission}`);
   return <>{fallback}</>;
 };
