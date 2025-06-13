@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
-          // SOLUCIÓN: Acceder directamente a app_metadata
+          // SOLUCIÓN DIRECTA: Acceder directamente a app_metadata
           console.log('🔍 Buscando metadatos en:', auth0User);
           
           // Imprimir el objeto completo para depuración

@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  FileText,
-  AlertTriangle,
-  Users,
-  Building2,
-  TrendingUp,
-  BarChart3,
-  RefreshCw
+  Building2, 
+  AlertCircle, 
+  Users, 
+  FileText, 
+  TrendingUp, 
+  BarChart3, 
+  RefreshCw 
 } from 'lucide-react';
 import { useSesion } from '../context/SesionContext';
+import { useAuth } from '../context/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
 import { FinancialChart } from '../components/dashboard/FinancialChart';
 import { FinancialSummary } from '../components/dashboard/FinancialSummary';
@@ -167,7 +168,7 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
             <div className="p-3 rounded-full bg-yellow-500">
-              <AlertTriangle className="h-6 w-6 text-white" />
+              <AlertCircle className="h-6 w-6 text-white" />
             </div>
           </div>
         </div>
