@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Building2, AlertCircle, Copy, ExternalLink, Settings, RefreshCw, CheckCircle, Globe, Shield, Key } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAuth0 } from '@auth0/auth0-react';
 import { getAuthConfigInfo } from '../config/auth0';
+import { Navigate } from 'react-router-dom';
 
 export const Login: React.FC = () => {
   const [showConfig, setShowConfig] = useState(false);
@@ -14,29 +15,9 @@ export const Login: React.FC = () => {
   
   const configInfo = getAuthConfigInfo();
 
-  // Si ya está autenticado, mostrar mensaje
+  // Si ya está autenticado, redirigir al dashboard
   if (isAuthenticated && !isLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 max-w-md">
-          <div className="text-center mb-6">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Ya estás autenticado!</h2>
-            <p className="text-gray-600">
-              Has iniciado sesión correctamente en ContaEmpresa.
-            </p>
-          </div>
-          <div className="mt-6">
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 font-medium transition-colors"
-            >
-              Ir al Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return <Navigate to="/" replace />;
   }
 
   const handleLogin = () => {
@@ -337,19 +318,6 @@ export const Login: React.FC = () => {
 
         {/* Formulario */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/logo-contaempresa.png" 
-              alt="ContaEmpresa Logo" 
-              className="h-16 object-contain"
-              onError={(e) => {
-                // Si la imagen no se puede cargar, mostrar un fallback
-                const target = e.target as HTMLImageElement;
-                target.onerror = null; // Prevenir bucle infinito
-                target.style.display = 'none';
-              }}
-            />
-          </div>
           <div className="space-y-6">
             <button
               onClick={handleLogin}
@@ -508,7 +476,6 @@ export const Login: React.FC = () => {
                 <p>• Dominio personalizado: {configInfo.isCustomDomain ? '✅' : '❌'}</p>
                 <p>• Dominio problemático: {isProblematicDomain ? '❌' : '✅'}</p>
                 <p>• Error 403: {is403Error ? '❌' : '✅'}</p>
-                <p>• Firebase Auth Email: {import.meta.env.VITE_FIREBASE_AUTH_EMAIL ? '✅' : '❌'}</p>
               </div>
             </div>
           )}

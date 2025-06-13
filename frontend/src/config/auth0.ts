@@ -81,6 +81,11 @@ const auth0Config = {
     // Limpiar la URL después del callback
     const targetUrl = appState?.returnTo || window.location.pathname;
     window.history.replaceState({}, document.title, targetUrl);
+    
+    // Forzar una recarga de la página para asegurar que todo se inicialice correctamente
+    if (window.location.pathname === '/') {
+      window.location.href = '/';
+    }
   },
   // Configuración para evitar bucles infinitos
   maxAge: 86400, // 24 horas

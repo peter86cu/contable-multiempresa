@@ -32,15 +32,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     setExpandedMenu(expandedMenu === title ? null : title);
   };
 
-  // Verificar si el usuario tiene el permiso admin:all o es admin
+  // Verificar si el usuario tiene el permiso admin:all
   const hasAdminAll = usuario?.permisos?.includes('admin:all') || false;
-  const isAdmin = usuario?.rol === 'admin_empresa' || usuario?.rol === 'super_admin';
   
   // Agregar logs para depuración
   console.log("🔍 SIDEBAR - Usuario:", usuario);
   console.log("🔑 SIDEBAR - Permisos del usuario:", usuario?.permisos);
   console.log("🔑 SIDEBAR - Usuario tiene admin:all:", hasAdminAll);
-  console.log("🔑 SIDEBAR - Usuario es admin:", isAdmin);
+  console.log("🔑 SIDEBAR - Usuario es admin:", usuario?.rol === 'admin_empresa' || usuario?.rol === 'super_admin');
 
   const menuItems = [
     {
@@ -200,9 +199,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           {menuItems.map((item) => {
-            // IMPORTANTE: Si el usuario tiene admin:all o es admin, mostrar TODOS los menús
+            // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los menús
             // Si no, verificar el permiso específico
-            const tienePermiso = hasAdminAll || isAdmin || 
+            const tienePermiso = hasAdminAll || 
                                item.permiso === null || 
                                (item.permiso && hasPermission(item.permiso));
             
@@ -234,9 +233,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     {expandedMenu === item.title && (
                       <div className="ml-4 mt-2 space-y-1">
                         {item.submenu.map((subItem) => {
-                          // IMPORTANTE: Si el usuario tiene admin:all o es admin, mostrar TODOS los submenús
+                          // IMPORTANTE: Si el usuario tiene admin:all, mostrar TODOS los submenús
                           // Si no, verificar el permiso específico
-                          const tienePermisoSub = hasAdminAll || isAdmin || 
+                          const tienePermisoSub = hasAdminAll || 
                                                subItem.permiso === null || 
                                                (subItem.permiso && hasPermission(subItem.permiso));
                           

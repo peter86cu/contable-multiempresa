@@ -1,8 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { Usuario } from '../types';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../config/firebase';
 
 interface AuthContextType {
   user: any;
@@ -39,7 +37,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [firebaseAuthenticated, setFirebaseAuthenticated] = useState(false);
 
   // Usar Auth0 para autenticación
   useEffect(() => {
@@ -55,21 +52,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('✅ Usuario autenticado con Auth0:', auth0User);
           console.log('🔍 Objeto completo del usuario Auth0:', auth0User);
           
-          // Autenticar en Firebase con credenciales fijas
-          try {
-            // Usar credenciales fijas para autenticar en Firebase
-            // Estas credenciales deberían estar en variables de entorno
-            const email = import.meta.env.VITE_FIREBASE_AUTH_EMAIL || 'admin@contaempresa.com';
-            const password = import.meta.env.VITE_FIREBASE_AUTH_PASSWORD || 'password123';
-            
-            console.log('🔄 Iniciando sesión en Firebase con credenciales fijas...');
-            const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            console.log('✅ Sesión iniciada en Firebase:', userCredential.user.uid);
-            setFirebaseAuthenticated(true);
-          } catch (firebaseError) {
-            console.error('❌ Error al autenticar en Firebase:', firebaseError);
-            // Continuar con la autenticación de Auth0 aunque falle la de Firebase
-          }
+          // Obtener permisos y rol desde los metadatos de Auth0
+          // Buscar en múltiples ubicaciones posibles
+          console.log('🔍 Buscando metadatos en:', auth0User);
           
           // Buscar rol en app_metadata primero, luego en otras ubicaciones
           const rol = auth0User.app_metadata?.rol || 
@@ -97,17 +82,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           else if (auth0User['permisos']) {
             permisos = auth0User['permisos'];
           }
-          
-          // IMPORTANTE: Si el rol es admin_empresa o super_admin, agregar admin:all
-          // independientemente de lo que venga en los permisos
-          if (rol === 'admin_empresa' || rol === 'super_admin') {
-            if (!permisos.includes('admin:all')) {
-              permisos = ['admin:all', ...permisos];
-              console.log('🔑 Agregado admin:all por rol de administrador');
+          // Si no se encuentran permisos, asignar según el rol
+          else {
+            // Si el rol es admin_empresa o super_admin, agregar admin:all
+            if (rol === 'admin_empresa' || rol === 'super_admin') {
+              permisos = ['admin:all'];
+            } else if (rol === 'contador') {
+              permisos = ['contabilidad:read', 'contabilidad:write', 'finanzas:read'];
+            } else {
+              permisos = ['contabilidad:read'];
             }
           }
           
           console.log('🔑 Permisos encontrados:', permisos);
+          
+          // Si el rol es admin_empresa o super_admin y no tiene admin:all, agregarlo
+          if ((rol === 'admin_empresa' || rol === 'super_admin') && !permisos.includes('admin:all')) {
+            permisos.push('admin:all');
+            console.log('🔑 Agregado admin:all por rol de administrador');
+          }
           
           // Buscar empresas asignadas en app_metadata primero, luego en otras ubicaciones
           const empresasAsignadas = auth0User.app_metadata?.empresas || 
@@ -146,15 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Si no está autenticado y Auth0 ya terminó de cargar, limpiar usuario
           console.log('⚠️ No autenticado con Auth0');
           setUsuario(null);
-          setFirebaseAuthenticated(false);
-          
-          // Cerrar sesión en Firebase
-          try {
-            await auth.signOut();
-            console.log('✅ Sesión cerrada en Firebase');
-          } catch (firebaseError) {
-            console.error('❌ Error al cerrar sesión en Firebase:', firebaseError);
-          }
         }
       } catch (error) {
         console.error('Error inicializando autenticación:', error);
@@ -169,20 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = () => {
     // Usar Auth0 para login
-    loginWithRedirect();
+    loginWithRedirect({
+      appState: { returnTo: window.location.pathname }
+    });
   };
 
-  const logout = async () => {
-    // Cerrar sesión en Firebase primero
-    try {
-      await auth.signOut();
-      console.log('✅ Sesión cerrada en Firebase');
-      setFirebaseAuthenticated(false);
-    } catch (firebaseError) {
-      console.error('❌ Error al cerrar sesión en Firebase:', firebaseError);
-    }
-    
-    // Luego cerrar sesión en Auth0
+  const logout = () => {
+    // Usar Auth0 para logout
     auth0Logout({ 
       logoutParams: {
         returnTo: window.location.origin 
@@ -210,13 +187,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return true;
     }
     
-    // Si el rol es admin_empresa o super_admin, tiene todos los permisos
-    // Esta es una capa extra de seguridad por si los permisos no se cargaron correctamente
-    if (usuario.rol === 'admin_empresa' || usuario.rol === 'super_admin') {
-      console.log(`✅ Permiso ${permiso} concedido por rol ${usuario.rol}`);
-      return true;
-    }
-    
     const tienePermiso = usuario.permisos.includes(permiso);
     console.log(`🔍 Verificando permiso ${permiso}: ${tienePermiso ? '✅ Sí' : '❌ No'}`);
     console.log(`🔑 Permisos disponibles: ${usuario.permisos.join(', ')}`);
@@ -228,7 +198,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       user: auth0User,
       usuario,
       isLoading: isLoading || auth0Loading,
-      isAuthenticated: auth0Authenticated && firebaseAuthenticated,
+      isAuthenticated: auth0Authenticated,
       login,
       logout,
       hasAccess,
