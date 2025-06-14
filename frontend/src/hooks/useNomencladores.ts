@@ -32,7 +32,7 @@ export const useNomencladores = (paisId: string | undefined) => {
       console.log('🔄 Cargando nomencladores para país:', paisId);
       
       // Inicializar nomencladores si no existen
-      await NomencladoresService.initializeNomencladores(paisId);
+      await NomencladoresService.inicializarNomencladores(paisId);
       
       // Cargar todos los nomencladores en paralelo
       const [
@@ -153,7 +153,7 @@ export const useNomencladores = (paisId: string | undefined) => {
     try {
       if (!paisId) throw new Error('No hay país seleccionado');
       
-      const result = await NomencladoresService.initializeNomencladores(paisId);
+      const result = await NomencladoresService.inicializarNomencladores(paisId);
       
       // Recargar datos
       await cargarDatos();
