@@ -14,7 +14,7 @@ import {
   Ban as BankIcon, 
   Wallet,
   Loader2,
-  AlertCircle,
+  AlertTriangle,
   Settings,
   Link,
   Save,
@@ -108,10 +108,10 @@ function GestionNomencladores() {
           nombre: pais.nombre,
           codigo: pais.codigo,
           totalNomencladores: 0, // Se actualizará después
-          tieneDocumentoIdentidad: false,
-          tieneDocumentoFactura: false,
-          tieneImpuestos: false,
-          tieneFormasPago: false
+          tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
+          tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
+          tieneImpuestos: pais.tieneImpuestos || false,
+          tieneFormasPago: pais.tieneFormasPago || false
         }));
         
         setPaises(paisesFormateados);
@@ -161,6 +161,21 @@ function GestionNomencladores() {
       // Recargar datos
       await recargarDatos();
       
+      // Recargar países para actualizar su estado
+      const paisesActualizados = await PaisesService.getPaisesActivos();
+      const paisesFormateados = paisesActualizados.map(pais => ({
+        id: pais.id,
+        nombre: pais.nombre,
+        codigo: pais.codigo,
+        totalNomencladores: 0,
+        tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
+        tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
+        tieneImpuestos: pais.tieneImpuestos || false,
+        tieneFormasPago: pais.tieneFormasPago || false
+      }));
+      
+      setPaises(paisesFormateados);
+      
     } catch (error) {
       console.error('Error inicializando datos:', error);
       showError(
@@ -177,6 +192,22 @@ function GestionNomencladores() {
     setIsRefreshing(true);
     try {
       await recargarDatos();
+      
+      // Recargar países para actualizar su estado
+      const paisesActualizados = await PaisesService.getPaisesActivos();
+      const paisesFormateados = paisesActualizados.map(pais => ({
+        id: pais.id,
+        nombre: pais.nombre,
+        codigo: pais.codigo,
+        totalNomencladores: 0,
+        tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
+        tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
+        tieneImpuestos: pais.tieneImpuestos || false,
+        tieneFormasPago: pais.tieneFormasPago || false
+      }));
+      
+      setPaises(paisesFormateados);
+      
       showSuccess('Datos actualizados', 'Los nomencladores se han actualizado correctamente');
     } catch (error) {
       showError(
@@ -282,6 +313,21 @@ function GestionNomencladores() {
         
         // Recargar datos
         await recargarDatos();
+        
+        // Recargar países para actualizar la lista
+        const paisesActualizados = await PaisesService.getPaisesActivos();
+        const paisesFormateados = paisesActualizados.map(pais => ({
+          id: pais.id,
+          nombre: pais.nombre,
+          codigo: pais.codigo,
+          totalNomencladores: 0,
+          tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
+          tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
+          tieneImpuestos: pais.tieneImpuestos || false,
+          tieneFormasPago: pais.tieneFormasPago || false
+        }));
+        
+        setPaises(paisesFormateados);
       } else {
         showError(
           'Error al crear país',
@@ -494,7 +540,7 @@ function GestionNomencladores() {
       return (
         <div className="flex items-center justify-center h-64">
           <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar datos</h3>
             <p className="text-gray-600 mb-4">{error}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
