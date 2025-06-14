@@ -8,7 +8,7 @@ import {
   TipoMoneda,
   Banco
 } from '../types/nomencladores';
-import { NomencladoresService } from '../services/firebase/nomencladores';
+import { SupabaseNomencladoresService } from '../services/supabase/nomencladores';
 
 export const useNomencladores = (paisId: string | undefined) => {
   const [tiposDocumentoIdentidad, setTiposDocumentoIdentidad] = useState<TipoDocumentoIdentidad[]>([]);
@@ -32,35 +32,19 @@ export const useNomencladores = (paisId: string | undefined) => {
       console.log('🔄 Cargando nomencladores para país:', paisId);
       
       // Inicializar nomencladores si no existen
-      await NomencladoresService.inicializarNomencladores(paisId);
+      await SupabaseNomencladoresService.initializeNomencladores(paisId);
       
       // Cargar todos los nomencladores en paralelo
-      const [
-        tiposDocIdentidad,
-        tiposDocFactura,
-        tiposImp,
-        formasDePago,
-        tiposMovTesoreria,
-        tiposMon,
-        bancosData
-      ] = await Promise.all([
-        NomencladoresService.getTiposDocumentoIdentidad(paisId),
-        NomencladoresService.getTiposDocumentoFactura(paisId),
-        NomencladoresService.getTiposImpuesto(paisId),
-        NomencladoresService.getFormasPago(paisId),
-        NomencladoresService.getTiposMovimientoTesoreria(paisId),
-        NomencladoresService.getTiposMoneda(paisId),
-        NomencladoresService.getBancos(paisId)
-      ]);
+      const nomencladores = await SupabaseNomencladoresService.getNomencladoresByPais(paisId);
       
       // Eliminar duplicados por ID
-      const uniqueTiposDocIdentidad = removeDuplicatesById(tiposDocIdentidad);
-      const uniqueTiposDocFactura = removeDuplicatesById(tiposDocFactura);
-      const uniqueTiposImp = removeDuplicatesById(tiposImp);
-      const uniqueFormasDePago = removeDuplicatesById(formasDePago);
-      const uniqueTiposMovTesoreria = removeDuplicatesById(tiposMovTesoreria);
-      const uniqueTiposMon = removeDuplicatesById(tiposMon);
-      const uniqueBancos = removeDuplicatesById(bancosData);
+      const uniqueTiposDocIdentidad = removeDuplicatesById(nomencladores.tiposDocumentoIdentidad);
+      const uniqueTiposDocFactura = removeDuplicatesById(nomencladores.tiposDocumentoFactura);
+      const uniqueTiposImp = removeDuplicatesById(nomencladores.tiposImpuesto);
+      const uniqueFormasDePago = removeDuplicatesById(nomencladores.formasPago);
+      const uniqueTiposMovTesoreria = removeDuplicatesById(nomencladores.tiposMovimientoTesoreria);
+      const uniqueTiposMon = removeDuplicatesById(nomencladores.tiposMoneda);
+      const uniqueBancos = removeDuplicatesById(nomencladores.bancos);
       
       console.log(`✅ Datos cargados y filtrados: ${uniqueTiposDocIdentidad.length} tipos de documento, ${uniqueTiposDocFactura.length} tipos de factura`);
       console.log(`✅ Datos de tesorería: ${uniqueTiposMovTesoreria.length} tipos de movimiento, ${uniqueTiposMon.length} monedas, ${uniqueBancos.length} bancos`);
@@ -98,6 +82,73 @@ export const useNomencladores = (paisId: string | undefined) => {
     }
   }, [paisId, cargarDatos]);
 
+  // Crear un nuevo nomenclador
+  const crearNomenclador = async (tipo: string, data: any): Promise<string> => {
+    try {
+      if (!paisId) throw new Error('No hay país seleccionado');
+      
+      // Asegurar que el paisId esté establecido
+      data.paisId = paisId;
+      
+      const id = await SupabaseNomencladoresService.createNomenclador(tipo, data);
+      
+      // Actualizar el estado local
+      await cargarDatos();
+      
+      return id;
+    } catch (error) {
+      console.error(`Error creando ${tipo}:`, error);
+      throw error;
+    }
+  };
+
+  // Actualizar un nomenclador
+  const actualizarNomenclador = async (tipo: string, id: string, data: any): Promise<void> => {
+    try {
+      if (!paisId) throw new Error('No hay país seleccionado');
+      
+      await SupabaseNomencladoresService.updateNomenclador(tipo, id, data);
+      
+      // Actualizar el estado local
+      await cargarDatos();
+    } catch (error) {
+      console.error(`Error actualizando ${tipo}:`, error);
+      throw error;
+    }
+  };
+
+  // Eliminar un nomenclador
+  const eliminarNomenclador = async (tipo: string, id: string): Promise<void> => {
+    try {
+      if (!paisId) throw new Error('No hay país seleccionado');
+      
+      await SupabaseNomencladoresService.deleteNomenclador(tipo, id);
+      
+      // Actualizar el estado local
+      await cargarDatos();
+    } catch (error) {
+      console.error(`Error eliminando ${tipo}:`, error);
+      throw error;
+    }
+  };
+
+  // Inicializar nomencladores para un país
+  const inicializarNomencladores = async (): Promise<boolean> => {
+    try {
+      if (!paisId) throw new Error('No hay país seleccionado');
+      
+      const result = await SupabaseNomencladoresService.initializeNomencladores(paisId);
+      
+      // Recargar datos
+      await cargarDatos();
+      
+      return result;
+    } catch (error) {
+      console.error('Error inicializando nomencladores:', error);
+      throw error;
+    }
+  };
+
   return {
     // Estado
     tiposDocumentoIdentidad,
@@ -109,6 +160,12 @@ export const useNomencladores = (paisId: string | undefined) => {
     bancos,
     loading,
     error,
+    
+    // Operaciones CRUD
+    crearNomenclador,
+    actualizarNomenclador,
+    eliminarNomenclador,
+    inicializarNomencladores,
     
     // Utilidades
     recargarDatos: cargarDatos,

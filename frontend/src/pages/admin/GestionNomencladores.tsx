@@ -33,10 +33,7 @@ import { NomencladorCard } from '../../components/admin/NomencladorCard';
 import { NomencladoresStats } from '../../components/admin/NomencladoresStats';
 import { PaisesNomencladores } from '../../components/admin/PaisesNomencladores';
 import { NomencladorModal } from '../../components/admin/NomencladorModal';
-import { SeedDataNomencladoresService } from '../../services/firebase/seedDataNomencladores';
-import { PaisesService } from '../../services/paises/paisesService';
-import { NomencladoresService } from '../../services/firebase/nomencladores';
-import { FirebaseAuthService } from '../../config/firebaseAuth';
+import { SupabasePaisesService } from '../../services/supabase/paises';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -54,7 +51,12 @@ function GestionNomencladores() {
     loading,
     error,
     estadisticas,
-    recargarDatos
+    recargarDatos,
+    crearNomenclador,
+    actualizarNomenclador,
+    eliminarNomenclador,
+    inicializarNomencladores,
+    inicializarTodosPaises
   } = useNomencladoresAdmin(paisActual?.id);
   
   // Estados locales
@@ -63,7 +65,6 @@ function GestionNomencladores() {
   const [selectedPais, setSelectedPais] = useState<string | null>(paisActual?.id || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [isInitializingPais, setIsInitializingPais] = useState(false);
   
   // Estados para modal de nuevo país
   const [showPaisModal, setShowPaisModal] = useState(false);
@@ -102,13 +103,14 @@ function GestionNomencladores() {
     const cargarPaises = async () => {
       setLoadingPaises(true);
       try {
-        const paisesData = await PaisesService.getPaisesActivos();
+        const paisesData = await SupabasePaisesService.getPaisesActivos();
         
         // Transformar a formato para el componente PaisesNomencladores
         const paisesFormateados = paisesData.map(pais => ({
           id: pais.id,
           nombre: pais.nombre,
           codigo: pais.codigo,
+          totalNomencladores: 0, // Se actualizará después
           tieneDocumentoIdentidad: false,
           tieneDocumentoFactura: false,
           tieneImpuestos: false,
@@ -142,33 +144,16 @@ function GestionNomencladores() {
     }
   }, [paisActual?.id]);
 
-  // Efecto para recargar datos cuando cambia el país seleccionado
-  useEffect(() => {
-    if (selectedPais) {
-      recargarDatos();
-    }
-  }, [selectedPais, recargarDatos]);
-
   // Función para inicializar todos los países y nomencladores
   const handleInitializeAll = async () => {
     setIsInitializing(true);
     try {
-      // 1. Obtener lista de países
-      const paisesData = await PaisesService.getPaisesActivos();
-      
-      // 2. Para cada país, insertar sus nomencladores
-      for (const pais of paisesData) {
-        await SeedDataNomencladoresService.insertarNomencladores(pais.id);
-      }
+      await inicializarTodosPaises();
       
       showSuccess(
         'Inicialización completada',
         'Se han inicializado todos los países y nomencladores correctamente.'
       );
-      
-      // Recargar datos
-      await recargarDatos();
-      
     } catch (error) {
       console.error('Error inicializando datos:', error);
       showError(
@@ -180,37 +165,33 @@ function GestionNomencladores() {
     }
   };
 
-  // Función para inicializar nomencladores para un país específico
-  const handleInitializePaisNomencladores = async () => {
-    if (!selectedPais) {
-      showError('Error', 'No hay país seleccionado');
-      return;
-    }
+  // Función para inicializar nomencladores del país seleccionado
+  const handleInitializeCountry = async () => {
+    if (!selectedPais) return;
     
-    setIsInitializingPais(true);
+    setIsInitializing(true);
     try {
-      // Asegurar autenticación
-      await FirebaseAuthService.ensureAuthenticated();
+      const result = await inicializarNomencladores();
       
-      // Insertar nomencladores para el país seleccionado
-      await SeedDataNomencladoresService.insertarNomencladores(selectedPais);
-      
-      showSuccess(
-        'Inicialización completada',
-        `Se han inicializado los nomencladores para ${selectedPais} correctamente.`
-      );
-      
-      // Recargar datos
-      await recargarDatos();
-      
+      if (result) {
+        showSuccess(
+          'Inicialización completada',
+          `Se han inicializado los nomencladores para ${selectedPais} correctamente.`
+        );
+      } else {
+        showSuccess(
+          'Inicialización no necesaria',
+          `Ya existen nomencladores para ${selectedPais}.`
+        );
+      }
     } catch (error) {
-      console.error('Error inicializando nomencladores para país:', error);
+      console.error('Error inicializando nomencladores:', error);
       showError(
         'Error en inicialización',
-        'No se pudieron inicializar los nomencladores para este país. Por favor, intente nuevamente.'
+        'No se pudieron inicializar los nomencladores. Por favor, intente nuevamente.'
       );
     } finally {
-      setIsInitializingPais(false);
+      setIsInitializing(false);
     }
   };
 
@@ -233,12 +214,12 @@ function GestionNomencladores() {
   // Obtener todos los nomencladores en un solo array
   const getAllNomencladores = () => {
     return [
-      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
-      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
-      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tiposImpuesto' })),
-      ...formasPago.map(item => ({ ...item, tipo: 'formasPago' })),
-      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
-      ...tiposMoneda.map(item => ({ ...item, tipo: 'tiposMoneda' })),
+      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tipos_documento_identidad' })),
+      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tipos_documento_factura' })),
+      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tipos_impuesto' })),
+      ...formasPago.map(item => ({ ...item, tipo: 'formas_pago' })),
+      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tipos_movimiento_tesoreria' })),
+      ...tiposMoneda.map(item => ({ ...item, tipo: 'tipos_moneda' })),
       ...bancos.map(item => ({ ...item, tipo: 'bancos' }))
     ];
   };
@@ -248,9 +229,36 @@ function GestionNomencladores() {
     const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.codigo.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTipo = !selectedTipo || item.tipo === selectedTipo;
-    const matchesPais = !selectedPais || item.paisId === selectedPais;
-    return matchesSearch && matchesTipo && matchesPais;
+    return matchesSearch && matchesTipo;
   });
+
+  // Obtener ícono según tipo de nomenclador
+  const getNomencladorIcon = (tipo: string) => {
+    switch (tipo) {
+      case 'tipos_documento_identidad': return <FileText className="h-4 w-4 text-blue-600" />;
+      case 'tipos_documento_factura': return <FileText className="h-4 w-4 text-purple-600" />;
+      case 'tipos_impuesto': return <Percent className="h-4 w-4 text-orange-600" />;
+      case 'formas_pago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
+      case 'tipos_movimiento_tesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
+      case 'tipos_moneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
+      case 'bancos': return <BankIcon className="h-4 w-4 text-cyan-600" />;
+      default: return <Database className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  // Obtener nombre legible del tipo de nomenclador
+  const getNomencladorTypeName = (tipo: string) => {
+    switch (tipo) {
+      case 'tipos_documento_identidad': return 'Tipo de Documento de Identidad';
+      case 'tipos_documento_factura': return 'Tipo de Documento de Factura';
+      case 'tipos_impuesto': return 'Tipo de Impuesto';
+      case 'formas_pago': return 'Forma de Pago';
+      case 'tipos_movimiento_tesoreria': return 'Tipo de Movimiento de Tesorería';
+      case 'tipos_moneda': return 'Tipo de Moneda';
+      case 'bancos': return 'Banco';
+      default: return 'Nomenclador';
+    }
+  };
 
   // Agrupar nomencladores por tipo
   const groupedNomencladores = filteredNomencladores.reduce((groups, item) => {
@@ -275,34 +283,60 @@ function GestionNomencladores() {
     
     setSavingPais(true);
     try {
-      // Crear país con nomencladores
-      const resultado = await SeedDataNomencladoresService.crearPaisConNomencladores(paisFormData);
+      // Crear país
+      await SupabasePaisesService.crearPais({
+        id: paisFormData.id,
+        nombre: paisFormData.nombre,
+        codigo: paisFormData.codigo,
+        codigoISO: paisFormData.codigoISO,
+        monedaPrincipal: paisFormData.monedaPrincipal,
+        simboloMoneda: paisFormData.simboloMoneda,
+        formatoFecha: 'DD/MM/YYYY',
+        separadorDecimal: '.',
+        separadorMiles: ',',
+        configuracionTributaria: {
+          tiposDocumento: [],
+          impuestos: [],
+          regimenesTributarios: [],
+          formatoNumeroIdentificacion: '',
+          longitudNumeroIdentificacion: 0
+        },
+        planContableBase: '',
+        activo: true
+      });
       
-      if (resultado) {
-        showSuccess(
-          'País creado exitosamente',
-          `El país ${paisFormData.nombre} ha sido creado con sus nomencladores básicos`
-        );
-        
-        // Limpiar formulario y cerrar modal
-        setPaisFormData({
-          id: '',
-          nombre: '',
-          codigo: '',
-          codigoISO: '',
-          monedaPrincipal: '',
-          simboloMoneda: ''
-        });
-        setShowPaisModal(false);
-        
-        // Recargar datos
-        await recargarDatos();
-      } else {
-        showError(
-          'Error al crear país',
-          'El país no pudo ser creado. Es posible que ya exista.'
-        );
-      }
+      showSuccess(
+        'País creado exitosamente',
+        `El país ${paisFormData.nombre} ha sido creado correctamente`
+      );
+      
+      // Limpiar formulario y cerrar modal
+      setPaisFormData({
+        id: '',
+        nombre: '',
+        codigo: '',
+        codigoISO: '',
+        monedaPrincipal: '',
+        simboloMoneda: ''
+      });
+      setShowPaisModal(false);
+      
+      // Recargar países
+      const paisesData = await SupabasePaisesService.getPaisesActivos();
+      const paisesFormateados = paisesData.map(pais => ({
+        id: pais.id,
+        nombre: pais.nombre,
+        codigo: pais.codigo,
+        totalNomencladores: 0,
+        tieneDocumentoIdentidad: false,
+        tieneDocumentoFactura: false,
+        tieneImpuestos: false,
+        tieneFormasPago: false
+      }));
+      setPaises(paisesFormateados);
+      
+      // Seleccionar el nuevo país
+      setSelectedPais(paisFormData.id);
     } catch (error) {
       showError(
         'Error al crear país',
@@ -333,40 +367,12 @@ function GestionNomencladores() {
       `${getNomencladorTypeName(tipo)} "${nomenclador.nombre}"`,
       async () => {
         try {
-          // Implementar la eliminación del nomenclador según su tipo
-          switch (tipo) {
-            case 'tiposDocumentoIdentidad':
-              await NomencladoresService.eliminarTipoDocumentoIdentidad(nomenclador.id);
-              break;
-            case 'tiposDocumentoFactura':
-              await NomencladoresService.eliminarTipoDocumentoFactura(nomenclador.id);
-              break;
-            case 'tiposImpuesto':
-              await NomencladoresService.eliminarTipoImpuesto(nomenclador.id);
-              break;
-            case 'formasPago':
-              await NomencladoresService.eliminarFormaPago(nomenclador.id);
-              break;
-            case 'tiposMovimientoTesoreria':
-              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
-              break;
-            case 'tiposMoneda':
-              await NomencladoresService.eliminarTipoMoneda(nomenclador.id);
-              break;
-            case 'bancos':
-              await NomencladoresService.eliminarBanco(nomenclador.id);
-              break;
-            default:
-              throw new Error(`No se ha implementado la eliminación para el tipo ${tipo}`);
-          }
+          await eliminarNomenclador(tipo, nomenclador.id);
           
           showSuccess(
             'Nomenclador eliminado',
             `El nomenclador ha sido eliminado exitosamente`
           );
-          
-          // Recargar datos
-          await recargarDatos();
         } catch (error) {
           showError(
             'Error al eliminar nomenclador',
@@ -380,70 +386,18 @@ function GestionNomencladores() {
   // Guardar nomenclador
   const handleSaveNomenclador = async (data: any) => {
     try {
-      // Implementar la creación o actualización del nomenclador según su tipo
       if (selectedNomenclador) {
         // Actualizar nomenclador existente
-        switch (nomencladorTipo) {
-          case 'tiposDocumentoIdentidad':
-            await NomencladoresService.actualizarTipoDocumentoIdentidad(selectedNomenclador.id, data);
-            break;
-          case 'tiposDocumentoFactura':
-            await NomencladoresService.actualizarTipoDocumentoFactura(selectedNomenclador.id, data);
-            break;
-          case 'tiposImpuesto':
-            await NomencladoresService.actualizarTipoImpuesto(selectedNomenclador.id, data);
-            break;
-          case 'formasPago':
-            await NomencladoresService.actualizarFormaPago(selectedNomenclador.id, data);
-            break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
-            break;
-          case 'tiposMoneda':
-            await NomencladoresService.actualizarTipoMoneda(selectedNomenclador.id, data);
-            break;
-          case 'bancos':
-            await NomencladoresService.actualizarBanco(selectedNomenclador.id, data);
-            break;
-          default:
-            throw new Error(`No se ha implementado la actualización para el tipo ${nomencladorTipo}`);
-        }
+        await actualizarNomenclador(nomencladorTipo, selectedNomenclador.id, data);
       } else {
         // Crear nuevo nomenclador
-        switch (nomencladorTipo) {
-          case 'tiposDocumentoIdentidad':
-            await NomencladoresService.crearTipoDocumentoIdentidad(data);
-            break;
-          case 'tiposDocumentoFactura':
-            await NomencladoresService.crearTipoDocumentoFactura(data);
-            break;
-          case 'tiposImpuesto':
-            await NomencladoresService.crearTipoImpuesto(data);
-            break;
-          case 'formasPago':
-            await NomencladoresService.crearFormaPago(data);
-            break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.crearTipoMovimientoTesoreria(data);
-            break;
-          case 'tiposMoneda':
-            await NomencladoresService.crearTipoMoneda(data);
-            break;
-          case 'bancos':
-            await NomencladoresService.crearBanco(data);
-            break;
-          default:
-            throw new Error(`No se ha implementado la creación para el tipo ${nomencladorTipo}`);
-        }
+        await crearNomenclador(nomencladorTipo, data);
       }
       
       showSuccess(
         'Nomenclador guardado',
         `El nomenclador ha sido guardado exitosamente`
       );
-      
-      // Recargar datos
-      await recargarDatos();
       
       // Cerrar modal
       setShowNomencladorModal(false);
@@ -459,42 +413,14 @@ function GestionNomencladores() {
   // Obtener color según tipo de nomenclador
   const getTipoColor = (tipo: string) => {
     switch (tipo) {
-      case 'tiposDocumentoIdentidad': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'tiposDocumentoFactura': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'tiposImpuesto': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'formasPago': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'tiposMovimientoTesoreria': return 'bg-teal-100 text-teal-800 border-teal-200';
-      case 'tiposMoneda': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'tipos_documento_identidad': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'tipos_documento_factura': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'tipos_impuesto': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'formas_pago': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'tipos_movimiento_tesoreria': return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'tipos_moneda': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'bancos': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  // Obtener ícono según tipo de nomenclador
-  const getNomencladorIcon = (tipo: string) => {
-    switch (tipo) {
-      case 'tiposDocumentoIdentidad': return <FileText className="h-4 w-4 text-blue-600" />;
-      case 'tiposDocumentoFactura': return <FileText className="h-4 w-4 text-purple-600" />;
-      case 'tiposImpuesto': return <Percent className="h-4 w-4 text-orange-600" />;
-      case 'formasPago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
-      case 'tiposMovimientoTesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
-      case 'tiposMoneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
-      case 'bancos': return <BankIcon className="h-4 w-4 text-cyan-600" />;
-      default: return <Database className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  // Obtener nombre legible del tipo de nomenclador
-  const getNomencladorTypeName = (tipo: string) => {
-    switch (tipo) {
-      case 'tiposDocumentoIdentidad': return 'Tipo de Documento de Identidad';
-      case 'tiposDocumentoFactura': return 'Tipo de Documento de Factura';
-      case 'tiposImpuesto': return 'Tipo de Impuesto';
-      case 'formasPago': return 'Forma de Pago';
-      case 'tiposMovimientoTesoreria': return 'Tipo de Movimiento de Tesorería';
-      case 'tiposMoneda': return 'Tipo de Moneda';
-      case 'bancos': return 'Banco';
-      default: return 'Nomenclador';
     }
   };
 
@@ -670,12 +596,12 @@ function GestionNomencladores() {
                       className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                     >
                       <option value="">Todos los tipos</option>
-                      <option value="tiposDocumentoIdentidad">Documentos de Identidad</option>
-                      <option value="tiposDocumentoFactura">Documentos de Factura</option>
-                      <option value="tiposImpuesto">Impuestos</option>
-                      <option value="formasPago">Formas de Pago</option>
-                      <option value="tiposMovimientoTesoreria">Movimientos de Tesorería</option>
-                      <option value="tiposMoneda">Monedas</option>
+                      <option value="tipos_documento_identidad">Documentos de Identidad</option>
+                      <option value="tipos_documento_factura">Documentos de Factura</option>
+                      <option value="tipos_impuesto">Impuestos</option>
+                      <option value="formas_pago">Formas de Pago</option>
+                      <option value="tipos_movimiento_tesoreria">Movimientos de Tesorería</option>
+                      <option value="tipos_moneda">Monedas</option>
                       <option value="bancos">Bancos</option>
                     </select>
                   </div>
@@ -707,11 +633,11 @@ function GestionNomencladores() {
                     
                     {!searchTerm && !selectedTipo && (
                       <button
-                        onClick={handleInitializePaisNomencladores}
-                        disabled={isInitializingPais}
+                        onClick={handleInitializeCountry}
+                        disabled={isInitializing}
                         className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2 mx-auto"
                       >
-                        {isInitializingPais ? (
+                        {isInitializing ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
                             <span>Inicializando...</span>
@@ -964,7 +890,7 @@ function GestionNomencladores() {
                 <div className="flex items-start space-x-3">
                   <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-blue-800">Creación de Nomencladores</p>
+                    <p className="text-sm text-blue-800 font-medium">Creación de Nomencladores</p>
                     <p className="text-xs text-blue-600 mt-1">
                       Al crear un nuevo país, se generarán automáticamente los nomencladores básicos necesarios para su funcionamiento.
                     </p>
