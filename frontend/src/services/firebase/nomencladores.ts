@@ -103,10 +103,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando tipo de documento de identidad ${id}`);
       
       const tipoDocRef = doc(db, 'tiposDocumentoIdentidad', id);
-      await updateDoc(tipoDocRef, {
+      await setDoc(tipoDocRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Tipo de documento de identidad actualizado correctamente');
     } catch (error) {
@@ -212,10 +212,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando tipo de documento de factura ${id}`);
       
       const tipoDocRef = doc(db, 'tiposDocumentoFactura', id);
-      await updateDoc(tipoDocRef, {
+      await setDoc(tipoDocRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Tipo de documento de factura actualizado correctamente');
     } catch (error) {
@@ -321,10 +321,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando tipo de impuesto ${id}`);
       
       const tipoImpuestoRef = doc(db, 'tiposImpuesto', id);
-      await updateDoc(tipoImpuestoRef, {
+      await setDoc(tipoImpuestoRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Tipo de impuesto actualizado correctamente');
     } catch (error) {
@@ -430,10 +430,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando forma de pago ${id}`);
       
       const formaPagoRef = doc(db, 'formasPago', id);
-      await updateDoc(formaPagoRef, {
+      await setDoc(formaPagoRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Forma de pago actualizada correctamente');
     } catch (error) {
@@ -539,10 +539,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando tipo de movimiento de tesorería ${id}`);
       
       const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
-      await updateDoc(tipoMovimientoRef, {
+      await setDoc(tipoMovimientoRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Tipo de movimiento de tesorería actualizado correctamente');
     } catch (error) {
@@ -648,10 +648,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando tipo de moneda ${id}`);
       
       const tipoMonedaRef = doc(db, 'tiposMoneda', id);
-      await updateDoc(tipoMonedaRef, {
+      await setDoc(tipoMonedaRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Tipo de moneda actualizado correctamente');
     } catch (error) {
@@ -757,10 +757,10 @@ export class NomencladoresService {
       console.log(`🔄 Actualizando banco ${id}`);
       
       const bancoRef = doc(db, 'bancos', id);
-      await updateDoc(bancoRef, {
+      await setDoc(bancoRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      });
+      }, { merge: true });
       
       console.log('✅ Banco actualizado correctamente');
     } catch (error) {
