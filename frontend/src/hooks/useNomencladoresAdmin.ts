@@ -8,8 +8,8 @@ import {
   TipoMoneda,
   Banco
 } from '../types/nomencladores';
-import { SupabaseNomencladoresService } from '../services/supabase/nomencladores';
-import { SupabasePaisesService } from '../services/supabase/paises';
+import { NomencladoresService } from '../services/firebase/nomencladores';
+import { PaisesService } from '../services/firebase/paises';
 
 export const useNomencladoresAdmin = (paisId: string | undefined) => {
   const [tiposDocumentoIdentidad, setTiposDocumentoIdentidad] = useState<TipoDocumentoIdentidad[]>([]);
@@ -39,26 +39,35 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
       console.log('🔄 Cargando nomencladores para país:', paisId);
       
       // Cargar todos los nomencladores en paralelo
-      const nomencladores = await SupabaseNomencladoresService.getNomencladoresByPais(paisId);
+      const [
+        tiposDocIdentidad,
+        tiposDocFactura,
+        tiposImp,
+        formasDePago,
+        tiposMovTesoreria,
+        tiposMon,
+        bancosData
+      ] = await Promise.all([
+        NomencladoresService.getTiposDocumentoIdentidad(paisId),
+        NomencladoresService.getTiposDocumentoFactura(paisId),
+        NomencladoresService.getTiposImpuesto(paisId),
+        NomencladoresService.getFormasPago(paisId),
+        NomencladoresService.getTiposMovimientoTesoreria(paisId),
+        NomencladoresService.getTiposMoneda(paisId),
+        NomencladoresService.getBancos(paisId)
+      ]);
       
       // Eliminar duplicados por ID
-      const uniqueTiposDocIdentidad = removeDuplicatesById(nomencladores.tiposDocumentoIdentidad);
-      const uniqueTiposDocFactura = removeDuplicatesById(nomencladores.tiposDocumentoFactura);
-      const uniqueTiposImp = removeDuplicatesById(nomencladores.tiposImpuesto);
-      const uniqueFormasDePago = removeDuplicatesById(nomencladores.formasPago);
-      const uniqueTiposMovTesoreria = removeDuplicatesById(nomencladores.tiposMovimientoTesoreria);
-      const uniqueTiposMon = removeDuplicatesById(nomencladores.tiposMoneda);
-      const uniqueBancos = removeDuplicatesById(nomencladores.bancos);
+      const uniqueTiposDocIdentidad = removeDuplicatesById(tiposDocIdentidad);
+      const uniqueTiposDocFactura = removeDuplicatesById(tiposDocFactura);
+      const uniqueTiposImp = removeDuplicatesById(tiposImp);
+      const uniqueFormasDePago = removeDuplicatesById(formasDePago);
+      const uniqueTiposMovTesoreria = removeDuplicatesById(tiposMovTesoreria);
+      const uniqueTiposMon = removeDuplicatesById(tiposMon);
+      const uniqueBancos = removeDuplicatesById(bancosData);
       
-      console.log(`✅ Datos cargados y filtrados: 
-        - ${uniqueTiposDocIdentidad.length} tipos de documento
-        - ${uniqueTiposDocFactura.length} tipos de factura
-        - ${uniqueTiposImp.length} tipos de impuesto
-        - ${uniqueFormasDePago.length} formas de pago
-        - ${uniqueTiposMon.length} tipos de moneda
-        - ${uniqueBancos.length} bancos
-        - ${uniqueTiposMovTesoreria.length} tipos de movimiento de tesorería
-      `);
+      console.log(`✅ Datos cargados y filtrados: ${uniqueTiposDocIdentidad.length} tipos de documento, ${uniqueTiposDocFactura.length} tipos de factura`);
+      console.log(`✅ Datos de tesorería: ${uniqueTiposMovTesoreria.length} tipos de movimiento, ${uniqueTiposMon.length} monedas, ${uniqueBancos.length} bancos`);
       
       setTiposDocumentoIdentidad(uniqueTiposDocIdentidad);
       setTiposDocumentoFactura(uniqueTiposDocFactura);
@@ -82,7 +91,7 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
   const cargarEstadisticas = async () => {
     try {
       // Obtener todos los países
-      const paises = await SupabasePaisesService.getPaisesActivos();
+      const paises = await PaisesService.getPaisesActivos();
       
       // Inicializar estadísticas
       const stats = {
@@ -144,7 +153,7 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
       // Asegurar que el paisId esté establecido
       data.paisId = paisId;
       
-      const id = await SupabaseNomencladoresService.createNomenclador(tipo, data);
+      const id = await NomencladoresService.createNomenclador(tipo, data);
       
       // Actualizar el estado local
       await cargarDatos();
@@ -161,7 +170,7 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
     try {
       if (!paisId) throw new Error('No hay país seleccionado');
       
-      await SupabaseNomencladoresService.updateNomenclador(tipo, id, data);
+      await NomencladoresService.updateNomenclador(tipo, id, data);
       
       // Actualizar el estado local
       await cargarDatos();
@@ -176,7 +185,7 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
     try {
       if (!paisId) throw new Error('No hay país seleccionado');
       
-      await SupabaseNomencladoresService.deleteNomenclador(tipo, id);
+      await NomencladoresService.deleteNomenclador(tipo, id);
       
       // Actualizar el estado local
       await cargarDatos();
@@ -191,7 +200,7 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
     try {
       if (!paisId) throw new Error('No hay país seleccionado');
       
-      const result = await SupabaseNomencladoresService.initializeNomencladores(paisId);
+      const result = await NomencladoresService.inicializarNomencladores(paisId);
       
       // Recargar datos
       await cargarDatos();
@@ -209,11 +218,11 @@ export const useNomencladoresAdmin = (paisId: string | undefined) => {
       setLoading(true);
       
       // Obtener todos los países
-      const paises = await SupabasePaisesService.getPaisesActivos();
+      const paises = await PaisesService.getPaisesActivos();
       
       // Inicializar nomencladores para cada país
       for (const pais of paises) {
-        await SupabaseNomencladoresService.initializeNomencladores(pais.id);
+        await NomencladoresService.inicializarNomencladores(pais.id);
       }
       
       // Recargar datos
