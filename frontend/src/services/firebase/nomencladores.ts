@@ -9,7 +9,8 @@ import {
   where, 
   orderBy,
   Timestamp,
-  getDoc
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
@@ -38,7 +39,7 @@ export class NomencladoresService {
       
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(tiposDocRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -53,7 +54,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as TipoDocumentoIdentidad[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const tiposDocOrdenados = tiposDoc.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${tiposDocOrdenados.length} tipos de documento de identidad`);
@@ -67,6 +68,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Tipo de Documento de Identidad
   static async crearTipoDocumentoIdentidad(tipo: Omit<TipoDocumentoIdentidad, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -78,11 +80,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo tipo de documento de identidad:', tipo.nombre);
       
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
-      const docRef = await addDoc(tiposDocRef, {
+      const nuevoTipo = {
         ...tipo,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(tiposDocRef, nuevoTipo);
       console.log(`✅ Tipo de documento de identidad creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -91,6 +94,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Tipo de Documento de Identidad
   static async actualizarTipoDocumentoIdentidad(id: string, datos: Partial<TipoDocumentoIdentidad>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -114,6 +118,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Tipo de Documento de Identidad
   static async eliminarTipoDocumentoIdentidad(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -148,7 +153,7 @@ export class NomencladoresService {
       
       const tiposDocRef = collection(db, 'tiposDocumentoFactura');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(tiposDocRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -163,7 +168,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as TipoDocumentoFactura[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const tiposDocOrdenados = tiposDoc.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${tiposDocOrdenados.length} tipos de documento de factura`);
@@ -177,6 +182,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Tipo de Documento de Factura
   static async crearTipoDocumentoFactura(tipo: Omit<TipoDocumentoFactura, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -188,11 +194,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo tipo de documento de factura:', tipo.nombre);
       
       const tiposDocRef = collection(db, 'tiposDocumentoFactura');
-      const docRef = await addDoc(tiposDocRef, {
+      const nuevoTipo = {
         ...tipo,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(tiposDocRef, nuevoTipo);
       console.log(`✅ Tipo de documento de factura creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -201,6 +208,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Tipo de Documento de Factura
   static async actualizarTipoDocumentoFactura(id: string, datos: Partial<TipoDocumentoFactura>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -224,6 +232,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Tipo de Documento de Factura
   static async eliminarTipoDocumentoFactura(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -258,7 +267,7 @@ export class NomencladoresService {
       
       const tiposImpuestoRef = collection(db, 'tiposImpuesto');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(tiposImpuestoRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -273,7 +282,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as TipoImpuesto[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const tiposImpuestoOrdenados = tiposImpuesto.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${tiposImpuestoOrdenados.length} tipos de impuesto`);
@@ -287,6 +296,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Tipo de Impuesto
   static async crearTipoImpuesto(tipo: Omit<TipoImpuesto, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -298,11 +308,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo tipo de impuesto:', tipo.nombre);
       
       const tiposImpuestoRef = collection(db, 'tiposImpuesto');
-      const docRef = await addDoc(tiposImpuestoRef, {
+      const nuevoTipo = {
         ...tipo,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(tiposImpuestoRef, nuevoTipo);
       console.log(`✅ Tipo de impuesto creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -311,6 +322,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Tipo de Impuesto
   static async actualizarTipoImpuesto(id: string, datos: Partial<TipoImpuesto>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -334,6 +346,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Tipo de Impuesto
   static async eliminarTipoImpuesto(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -368,7 +381,7 @@ export class NomencladoresService {
       
       const formasPagoRef = collection(db, 'formasPago');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(formasPagoRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -383,7 +396,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as FormaPago[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const formasPagoOrdenadas = formasPago.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${formasPagoOrdenadas.length} formas de pago`);
@@ -397,6 +410,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Forma de Pago
   static async crearFormaPago(forma: Omit<FormaPago, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -408,11 +422,12 @@ export class NomencladoresService {
       console.log('📝 Creando nueva forma de pago:', forma.nombre);
       
       const formasPagoRef = collection(db, 'formasPago');
-      const docRef = await addDoc(formasPagoRef, {
+      const nuevaForma = {
         ...forma,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(formasPagoRef, nuevaForma);
       console.log(`✅ Forma de pago creada con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -421,6 +436,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Forma de Pago
   static async actualizarFormaPago(id: string, datos: Partial<FormaPago>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -444,6 +460,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Forma de Pago
   static async eliminarFormaPago(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -478,7 +495,7 @@ export class NomencladoresService {
       
       const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(tiposMovimientoRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -493,7 +510,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as TipoMovimientoTesoreria[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const tiposMovimientoOrdenados = tiposMovimiento.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${tiposMovimientoOrdenados.length} tipos de movimiento de tesorería`);
@@ -507,6 +524,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Tipo de Movimiento de Tesorería
   static async crearTipoMovimientoTesoreria(tipo: Omit<TipoMovimientoTesoreria, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -518,11 +536,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo tipo de movimiento de tesorería:', tipo.nombre);
       
       const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      const docRef = await addDoc(tiposMovimientoRef, {
+      const nuevoTipo = {
         ...tipo,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(tiposMovimientoRef, nuevoTipo);
       console.log(`✅ Tipo de movimiento de tesorería creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -531,6 +550,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Tipo de Movimiento de Tesorería
   static async actualizarTipoMovimientoTesoreria(id: string, datos: Partial<TipoMovimientoTesoreria>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -554,6 +574,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Tipo de Movimiento de Tesorería
   static async eliminarTipoMovimientoTesoreria(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -588,7 +609,7 @@ export class NomencladoresService {
       
       const tiposMonedaRef = collection(db, 'tiposMoneda');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(tiposMonedaRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -603,7 +624,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as TipoMoneda[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const tiposMonedaOrdenados = tiposMoneda.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${tiposMonedaOrdenados.length} tipos de moneda`);
@@ -617,6 +638,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Tipo de Moneda
   static async crearTipoMoneda(tipo: Omit<TipoMoneda, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -628,11 +650,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo tipo de moneda:', tipo.nombre);
       
       const tiposMonedaRef = collection(db, 'tiposMoneda');
-      const docRef = await addDoc(tiposMonedaRef, {
+      const nuevoTipo = {
         ...tipo,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(tiposMonedaRef, nuevoTipo);
       console.log(`✅ Tipo de moneda creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -641,6 +664,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Tipo de Moneda
   static async actualizarTipoMoneda(id: string, datos: Partial<TipoMoneda>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -664,6 +688,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Tipo de Moneda
   static async eliminarTipoMoneda(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -698,7 +723,7 @@ export class NomencladoresService {
       
       const bancosRef = collection(db, 'bancos');
       
-      // Modificado: Primero filtrar por país sin ordenar
+      // Usar query simple sin orderBy para evitar necesidad de índices compuestos
       const q = query(bancosRef, where('paisId', '==', paisId));
       const snapshot = await getDocs(q);
       
@@ -713,7 +738,7 @@ export class NomencladoresService {
         fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
       })) as Banco[];
       
-      // Ordenar en el cliente para evitar problemas de índices
+      // Ordenar en el cliente para evitar necesidad de índices compuestos
       const bancosOrdenados = bancos.sort((a, b) => a.nombre.localeCompare(b.nombre));
       
       console.log(`✅ Se encontraron ${bancosOrdenados.length} bancos`);
@@ -727,6 +752,7 @@ export class NomencladoresService {
     }
   }
 
+  // Crear Banco
   static async crearBanco(banco: Omit<Banco, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
       // Asegurar autenticación
@@ -738,11 +764,12 @@ export class NomencladoresService {
       console.log('📝 Creando nuevo banco:', banco.nombre);
       
       const bancosRef = collection(db, 'bancos');
-      const docRef = await addDoc(bancosRef, {
+      const nuevoBanco = {
         ...banco,
         fechaCreacion: Timestamp.now()
-      });
+      };
       
+      const docRef = await addDoc(bancosRef, nuevoBanco);
       console.log(`✅ Banco creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -751,6 +778,7 @@ export class NomencladoresService {
     }
   }
 
+  // Actualizar Banco
   static async actualizarBanco(id: string, datos: Partial<Banco>): Promise<void> {
     try {
       // Asegurar autenticación
@@ -774,6 +802,7 @@ export class NomencladoresService {
     }
   }
 
+  // Eliminar Banco
   static async eliminarBanco(id: string): Promise<void> {
     try {
       // Asegurar autenticación
@@ -795,7 +824,7 @@ export class NomencladoresService {
   }
 
   // Inicializar nomencladores para un país
-  static async inicializarNomencladores(paisId: string): Promise<void> {
+  static async inicializarNomencladores(paisId: string): Promise<boolean> {
     try {
       // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
@@ -805,41 +834,112 @@ export class NomencladoresService {
 
       console.log(`🔄 Inicializando nomencladores para país: ${paisId}`);
       
-      // Verificar si ya existen nomencladores para este país
+      // Verificar si ya existen nomencladores
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
       const q = query(tiposDocRef, where('paisId', '==', paisId), limit(1));
       const snapshot = await getDocs(q);
       
       if (!snapshot.empty) {
         console.log(`⚠️ Ya existen nomencladores para el país ${paisId}`);
-        return;
+        return false;
       }
       
-      // Insertar datos mock para cada tipo de nomenclador
-      const tiposDocIdentidad = this.getMockTiposDocumentoIdentidad(paisId);
-      const tiposDocFactura = this.getMockTiposDocumentoFactura(paisId);
-      const tiposImpuesto = this.getMockTiposImpuesto(paisId);
-      const formasPago = this.getMockFormasPago(paisId);
-      const tiposMovimiento = this.getMockTiposMovimientoTesoreria(paisId);
-      const tiposMoneda = this.getMockTiposMoneda(paisId);
-      const bancos = this.getMockBancos(paisId);
-      
-      // Crear en paralelo
-      const promises = [
-        ...tiposDocIdentidad.map(tipo => this.crearTipoDocumentoIdentidad(tipo)),
-        ...tiposDocFactura.map(tipo => this.crearTipoDocumentoFactura(tipo)),
-        ...tiposImpuesto.map(tipo => this.crearTipoImpuesto(tipo)),
-        ...formasPago.map(forma => this.crearFormaPago(forma)),
-        ...tiposMovimiento.map(tipo => this.crearTipoMovimientoTesoreria(tipo)),
-        ...tiposMoneda.map(tipo => this.crearTipoMoneda(tipo)),
-        ...bancos.map(banco => this.crearBanco(banco))
-      ];
-      
-      await Promise.all(promises);
+      // Insertar datos mock como iniciales
+      await Promise.all([
+        // Insertar tipos de documento de identidad
+        ...this.getMockTiposDocumentoIdentidad(paisId).map(tipo => 
+          this.crearTipoDocumentoIdentidad({
+            nombre: tipo.nombre,
+            codigo: tipo.codigo,
+            descripcion: tipo.descripcion,
+            paisId: tipo.paisId,
+            activo: tipo.activo
+          })
+        ),
+        
+        // Insertar tipos de documento de factura
+        ...this.getMockTiposDocumentoFactura(paisId).map(tipo => 
+          this.crearTipoDocumentoFactura({
+            nombre: tipo.nombre,
+            codigo: tipo.codigo,
+            descripcion: tipo.descripcion,
+            paisId: tipo.paisId,
+            activo: tipo.activo,
+            requiereImpuesto: tipo.requiereImpuesto,
+            requiereCliente: tipo.requiereCliente,
+            afectaInventario: tipo.afectaInventario,
+            afectaContabilidad: tipo.afectaContabilidad,
+            prefijo: tipo.prefijo,
+            formato: tipo.formato
+          })
+        ),
+        
+        // Insertar tipos de impuesto
+        ...this.getMockTiposImpuesto(paisId).map(tipo => 
+          this.crearTipoImpuesto({
+            nombre: tipo.nombre,
+            codigo: tipo.codigo,
+            porcentaje: tipo.porcentaje,
+            tipo: tipo.tipo,
+            paisId: tipo.paisId,
+            activo: tipo.activo
+          })
+        ),
+        
+        // Insertar formas de pago
+        ...this.getMockFormasPago(paisId).map(forma => 
+          this.crearFormaPago({
+            nombre: forma.nombre,
+            codigo: forma.codigo,
+            descripcion: forma.descripcion,
+            paisId: forma.paisId,
+            activo: forma.activo,
+            requiereBanco: forma.requiereBanco,
+            requiereReferencia: forma.requiereReferencia,
+            requiereFecha: forma.requiereFecha
+          })
+        ),
+        
+        // Insertar tipos de movimiento de tesorería
+        ...this.getMockTiposMovimientoTesoreria(paisId).map(tipo => 
+          this.crearTipoMovimientoTesoreria({
+            nombre: tipo.nombre,
+            codigo: tipo.codigo,
+            descripcion: tipo.descripcion,
+            paisId: tipo.paisId,
+            activo: tipo.activo,
+            afectaSaldo: tipo.afectaSaldo,
+            requiereReferencia: tipo.requiereReferencia
+          })
+        ),
+        
+        // Insertar tipos de moneda
+        ...this.getMockTiposMoneda(paisId).map(tipo => 
+          this.crearTipoMoneda({
+            nombre: tipo.nombre,
+            codigo: tipo.codigo,
+            simbolo: tipo.simbolo,
+            paisId: tipo.paisId,
+            activo: tipo.activo,
+            esPrincipal: tipo.esPrincipal
+          })
+        ),
+        
+        // Insertar bancos
+        ...this.getMockBancos(paisId).map(banco => 
+          this.crearBanco({
+            nombre: banco.nombre,
+            codigo: banco.codigo,
+            paisId: banco.paisId,
+            activo: banco.activo
+          })
+        )
+      ]);
       
       console.log(`✅ Nomencladores inicializados correctamente para país ${paisId}`);
+      return true;
     } catch (error) {
-      console.error('❌ Error inicializando nomencladores:', error);
+      console.error(`❌ Error inicializando nomencladores para país ${paisId}:`, error);
       throw error;
     }
   }
@@ -854,32 +954,36 @@ export class NomencladoresService {
             nombre: 'DNI',
             codigo: '1',
             descripcion: 'Documento Nacional de Identidad',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'ruc',
             nombre: 'RUC',
             codigo: '6',
             descripcion: 'Registro Único de Contribuyentes',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'ce',
             nombre: 'Carnet de Extranjería',
             codigo: '4',
             descripcion: 'Carnet de Extranjería',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'pasaporte',
             nombre: 'Pasaporte',
             codigo: '7',
             descripcion: 'Pasaporte',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
@@ -889,32 +993,27 @@ export class NomencladoresService {
             nombre: 'Cédula de Ciudadanía',
             codigo: 'CC',
             descripcion: 'Cédula de Ciudadanía',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'nit',
             nombre: 'NIT',
             codigo: 'NIT',
             descripcion: 'Número de Identificación Tributaria',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'ce',
+            id: 'ce_col',
             nombre: 'Cédula de Extranjería',
             codigo: 'CE',
             descripcion: 'Cédula de Extranjería',
-            paisId,
-            activo: true
-          },
-          {
-            id: 'pasaporte',
-            nombre: 'Pasaporte',
-            codigo: 'PA',
-            descripcion: 'Pasaporte',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
@@ -924,51 +1023,39 @@ export class NomencladoresService {
             nombre: 'RFC',
             codigo: 'RFC',
             descripcion: 'Registro Federal de Contribuyentes',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'curp',
             nombre: 'CURP',
             codigo: 'CURP',
             descripcion: 'Clave Única de Registro de Población',
-            paisId,
-            activo: true
-          },
-          {
-            id: 'ine',
-            nombre: 'INE',
-            codigo: 'INE',
-            descripcion: 'Credencial para Votar (INE)',
-            paisId,
-            activo: true
-          },
-          {
-            id: 'pasaporte',
-            nombre: 'Pasaporte',
-            codigo: 'PASS',
-            descripcion: 'Pasaporte',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       default:
         return [
           {
-            id: 'doc1',
+            id: 'doc_identidad',
             nombre: 'Documento de Identidad',
             codigo: '1',
-            descripcion: 'Documento Nacional de Identidad',
+            descripcion: 'Documento de Identidad',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'doc2',
+            id: 'doc_tributario',
             nombre: 'Documento Tributario',
             codigo: '2',
-            descripcion: 'Documento para fines tributarios',
+            descripcion: 'Documento Tributario',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
     }
@@ -983,101 +1070,93 @@ export class NomencladoresService {
             nombre: 'Factura',
             codigo: '01',
             descripcion: 'Factura Electrónica',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'F',
-            formato: 'F###-########'
+            formato: 'F###-########',
+            fechaCreacion: new Date()
           },
           {
             id: 'boleta',
             nombre: 'Boleta',
             codigo: '03',
             descripcion: 'Boleta de Venta Electrónica',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: false,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'B',
-            formato: 'B###-########'
+            formato: 'B###-########',
+            fechaCreacion: new Date()
           },
           {
             id: 'nota_credito',
             nombre: 'Nota de Crédito',
             codigo: '07',
             descripcion: 'Nota de Crédito Electrónica',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'NC',
-            formato: 'NC##-########'
+            formato: 'NC##-########',
+            fechaCreacion: new Date()
           },
           {
             id: 'nota_debito',
             nombre: 'Nota de Débito',
             codigo: '08',
             descripcion: 'Nota de Débito Electrónica',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
-            afectaInventario: true,
+            afectaInventario: false,
             afectaContabilidad: true,
             prefijo: 'ND',
-            formato: 'ND##-########'
+            formato: 'ND##-########',
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
         return [
           {
-            id: 'factura',
+            id: 'factura_electronica',
             nombre: 'Factura Electrónica',
             codigo: 'FE',
             descripcion: 'Factura Electrónica',
-            paisId,
+            paisId: 'colombia',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'FE',
-            formato: 'FE##########'
+            formato: 'FE##########',
+            fechaCreacion: new Date()
           },
           {
-            id: 'nota_credito',
-            nombre: 'Nota Crédito',
+            id: 'nota_credito_electronica',
+            nombre: 'Nota Crédito Electrónica',
             codigo: 'NC',
             descripcion: 'Nota Crédito Electrónica',
-            paisId,
+            paisId: 'colombia',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'NC',
-            formato: 'NC##########'
-          },
-          {
-            id: 'nota_debito',
-            nombre: 'Nota Débito',
-            codigo: 'ND',
-            descripcion: 'Nota Débito Electrónica',
-            paisId,
-            activo: true,
-            requiereImpuesto: true,
-            requiereCliente: true,
-            afectaInventario: true,
-            afectaContabilidad: true,
-            prefijo: 'ND',
-            formato: 'ND##########'
+            formato: 'NC##########',
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
@@ -1087,34 +1166,36 @@ export class NomencladoresService {
             nombre: 'CFDI',
             codigo: 'CFDI',
             descripcion: 'Comprobante Fiscal Digital por Internet',
-            paisId,
+            paisId: 'mexico',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: '',
-            formato: ''
+            formato: '',
+            fechaCreacion: new Date()
           },
           {
-            id: 'nota_credito',
+            id: 'nota_credito_mx',
             nombre: 'Nota de Crédito',
             codigo: 'NC',
             descripcion: 'Nota de Crédito',
-            paisId,
+            paisId: 'mexico',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'NC',
-            formato: 'NC-########'
+            formato: 'NC########',
+            fechaCreacion: new Date()
           }
         ];
       default:
         return [
           {
-            id: 'factura',
+            id: 'factura_default',
             nombre: 'Factura',
             codigo: 'F',
             descripcion: 'Factura',
@@ -1125,10 +1206,11 @@ export class NomencladoresService {
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'F',
-            formato: 'F-########'
+            formato: 'F########',
+            fechaCreacion: new Date()
           },
           {
-            id: 'nota_credito',
+            id: 'nota_credito_default',
             nombre: 'Nota de Crédito',
             codigo: 'NC',
             descripcion: 'Nota de Crédito',
@@ -1139,7 +1221,8 @@ export class NomencladoresService {
             afectaInventario: true,
             afectaContabilidad: true,
             prefijo: 'NC',
-            formato: 'NC-########'
+            formato: 'NC########',
+            fechaCreacion: new Date()
           }
         ];
     }
@@ -1155,8 +1238,9 @@ export class NomencladoresService {
             codigo: 'IGV',
             porcentaje: 18,
             tipo: 'IGV',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'isc',
@@ -1164,17 +1248,19 @@ export class NomencladoresService {
             codigo: 'ISC',
             porcentaje: 10,
             tipo: 'OTRO',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'retencion',
-            nombre: 'Retención',
-            codigo: 'RET',
-            porcentaje: 8,
-            tipo: 'RETENCION',
-            paisId,
-            activo: true
+            id: 'exonerado',
+            nombre: 'Exonerado',
+            codigo: 'EXO',
+            porcentaje: 0,
+            tipo: 'OTRO',
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
@@ -1185,8 +1271,9 @@ export class NomencladoresService {
             codigo: 'IVA',
             porcentaje: 19,
             tipo: 'IVA',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'iva_reducido',
@@ -1194,29 +1281,32 @@ export class NomencladoresService {
             codigo: 'IVA-R',
             porcentaje: 5,
             tipo: 'IVA',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'retencion',
-            nombre: 'Retención en la Fuente',
-            codigo: 'RET',
-            porcentaje: 4,
-            tipo: 'RETENCION',
-            paisId,
-            activo: true
+            id: 'exento',
+            nombre: 'Exento',
+            codigo: 'EXE',
+            porcentaje: 0,
+            tipo: 'OTRO',
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
         return [
           {
-            id: 'iva',
+            id: 'iva_mx',
             nombre: 'IVA',
             codigo: 'IVA',
             porcentaje: 16,
             tipo: 'IVA',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'iva_frontera',
@@ -1224,38 +1314,42 @@ export class NomencladoresService {
             codigo: 'IVA-F',
             porcentaje: 8,
             tipo: 'IVA',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'isr',
-            nombre: 'ISR',
-            codigo: 'ISR',
-            porcentaje: 30,
-            tipo: 'ISR',
-            paisId,
-            activo: true
+            id: 'ieps',
+            nombre: 'IEPS',
+            codigo: 'IEPS',
+            porcentaje: 8,
+            tipo: 'OTRO',
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       default:
         return [
           {
-            id: 'impuesto1',
+            id: 'impuesto_general',
             nombre: 'Impuesto General',
             codigo: 'IG',
             porcentaje: 15,
             tipo: 'IVA',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'impuesto2',
+            id: 'impuesto_reducido',
             nombre: 'Impuesto Reducido',
             codigo: 'IR',
             porcentaje: 5,
             tipo: 'IVA',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
     }
@@ -1272,29 +1366,20 @@ export class NomencladoresService {
         activo: true,
         requiereBanco: false,
         requiereReferencia: false,
-        requiereFecha: false
+        requiereFecha: false,
+        fechaCreacion: new Date()
       },
       {
         id: 'transferencia',
         nombre: 'Transferencia Bancaria',
         codigo: 'TRA',
-        descripcion: 'Transferencia entre cuentas bancarias',
+        descripcion: 'Pago por transferencia bancaria',
         paisId,
         activo: true,
         requiereBanco: true,
         requiereReferencia: true,
-        requiereFecha: true
-      },
-      {
-        id: 'cheque',
-        nombre: 'Cheque',
-        codigo: 'CHE',
-        descripcion: 'Pago con cheque',
-        paisId,
-        activo: true,
-        requiereBanco: true,
-        requiereReferencia: true,
-        requiereFecha: true
+        requiereFecha: true,
+        fechaCreacion: new Date()
       },
       {
         id: 'tarjeta_credito',
@@ -1305,7 +1390,8 @@ export class NomencladoresService {
         activo: true,
         requiereBanco: true,
         requiereReferencia: true,
-        requiereFecha: false
+        requiereFecha: false,
+        fechaCreacion: new Date()
       },
       {
         id: 'tarjeta_debito',
@@ -1316,7 +1402,20 @@ export class NomencladoresService {
         activo: true,
         requiereBanco: true,
         requiereReferencia: true,
-        requiereFecha: false
+        requiereFecha: false,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'cheque',
+        nombre: 'Cheque',
+        codigo: 'CHE',
+        descripcion: 'Pago con cheque',
+        paisId,
+        activo: true,
+        requiereBanco: true,
+        requiereReferencia: true,
+        requiereFecha: true,
+        fechaCreacion: new Date()
       }
     ];
 
@@ -1326,26 +1425,40 @@ export class NomencladoresService {
         return [
           ...formasPagoComunes,
           {
+            id: 'deposito_cuenta',
+            nombre: 'Depósito en Cuenta',
+            codigo: 'DEP',
+            descripcion: 'Depósito en cuenta bancaria',
+            paisId: 'peru',
+            activo: true,
+            requiereBanco: true,
+            requiereReferencia: true,
+            requiereFecha: true,
+            fechaCreacion: new Date()
+          },
+          {
             id: 'yape',
             nombre: 'Yape',
             codigo: 'YAPE',
             descripcion: 'Pago mediante Yape',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereBanco: false,
             requiereReferencia: true,
-            requiereFecha: false
+            requiereFecha: false,
+            fechaCreacion: new Date()
           },
           {
             id: 'plin',
             nombre: 'Plin',
             codigo: 'PLIN',
             descripcion: 'Pago mediante Plin',
-            paisId,
+            paisId: 'peru',
             activo: true,
             requiereBanco: false,
             requiereReferencia: true,
-            requiereFecha: false
+            requiereFecha: false,
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
@@ -1354,50 +1467,54 @@ export class NomencladoresService {
           {
             id: 'nequi',
             nombre: 'Nequi',
-            codigo: 'NEQUI',
+            codigo: 'NEQ',
             descripcion: 'Pago mediante Nequi',
-            paisId,
+            paisId: 'colombia',
             activo: true,
             requiereBanco: false,
             requiereReferencia: true,
-            requiereFecha: false
+            requiereFecha: false,
+            fechaCreacion: new Date()
           },
           {
             id: 'daviplata',
             nombre: 'Daviplata',
-            codigo: 'DAVI',
+            codigo: 'DAV',
             descripcion: 'Pago mediante Daviplata',
-            paisId,
+            paisId: 'colombia',
             activo: true,
             requiereBanco: false,
             requiereReferencia: true,
-            requiereFecha: false
+            requiereFecha: false,
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
         return [
           ...formasPagoComunes,
           {
-            id: 'codi',
-            nombre: 'CoDi',
-            codigo: 'CODI',
-            descripcion: 'Pago mediante CoDi',
-            paisId,
-            activo: true,
-            requiereBanco: false,
-            requiereReferencia: true,
-            requiereFecha: false
-          },
-          {
             id: 'spei',
             nombre: 'SPEI',
             codigo: 'SPEI',
             descripcion: 'Transferencia SPEI',
-            paisId,
+            paisId: 'mexico',
             activo: true,
             requiereBanco: true,
             requiereReferencia: true,
-            requiereFecha: true
+            requiereFecha: true,
+            fechaCreacion: new Date()
+          },
+          {
+            id: 'codi',
+            nombre: 'CoDi',
+            codigo: 'CODI',
+            descripcion: 'Cobro Digital',
+            paisId: 'mexico',
+            activo: true,
+            requiereBanco: false,
+            requiereReferencia: true,
+            requiereFecha: false,
+            fechaCreacion: new Date()
           }
         ];
       default:
@@ -1408,56 +1525,92 @@ export class NomencladoresService {
   static getMockTiposMovimientoTesoreria(paisId: string): TipoMovimientoTesoreria[] {
     return [
       {
-        id: 'ingreso',
-        nombre: 'Ingreso',
-        codigo: 'ING',
-        descripcion: 'Ingreso de dinero',
-        paisId,
-        activo: true,
-        afectaSaldo: true,
-        requiereReferencia: false
-      },
-      {
-        id: 'egreso',
-        nombre: 'Egreso',
-        codigo: 'EGR',
-        descripcion: 'Salida de dinero',
-        paisId,
-        activo: true,
-        afectaSaldo: true,
-        requiereReferencia: false
-      },
-      {
-        id: 'transferencia',
-        nombre: 'Transferencia',
-        codigo: 'TRA',
-        descripcion: 'Transferencia entre cuentas',
-        paisId,
-        activo: true,
-        afectaSaldo: true,
-        requiereReferencia: true
-      },
-      {
-        id: 'cobro_cliente',
-        nombre: 'Cobro a Cliente',
-        codigo: 'COB',
-        descripcion: 'Cobro de factura a cliente',
+        id: 'ingreso_ventas',
+        nombre: 'Ingreso por Ventas',
+        codigo: 'IV',
+        descripcion: 'Ingreso por ventas de productos o servicios',
         paisId,
         activo: true,
         afectaSaldo: true,
         requiereReferencia: true,
-        requiereDocumento: true
+        fechaCreacion: new Date()
       },
       {
-        id: 'pago_proveedor',
-        nombre: 'Pago a Proveedor',
-        codigo: 'PAG',
-        descripcion: 'Pago de factura a proveedor',
+        id: 'ingreso_cobranza',
+        nombre: 'Ingreso por Cobranza',
+        codigo: 'IC',
+        descripcion: 'Ingreso por cobranza de facturas',
         paisId,
         activo: true,
         afectaSaldo: true,
         requiereReferencia: true,
-        requiereDocumento: true
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'ingreso_prestamo',
+        nombre: 'Ingreso por Préstamo',
+        codigo: 'IP',
+        descripcion: 'Ingreso por préstamo recibido',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'egreso_compras',
+        nombre: 'Egreso por Compras',
+        codigo: 'EC',
+        descripcion: 'Egreso por compras de productos o servicios',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'egreso_pagos',
+        nombre: 'Egreso por Pagos',
+        codigo: 'EP',
+        descripcion: 'Egreso por pago de facturas',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'egreso_impuestos',
+        nombre: 'Egreso por Impuestos',
+        codigo: 'EI',
+        descripcion: 'Egreso por pago de impuestos',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'egreso_nomina',
+        nombre: 'Egreso por Nómina',
+        codigo: 'EN',
+        descripcion: 'Egreso por pago de nómina',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: false,
+        fechaCreacion: new Date()
+      },
+      {
+        id: 'transferencia_interna',
+        nombre: 'Transferencia entre Cuentas',
+        codigo: 'TI',
+        descripcion: 'Transferencia entre cuentas propias',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: false,
+        fechaCreacion: new Date()
       }
     ];
   }
@@ -1471,27 +1624,30 @@ export class NomencladoresService {
             nombre: 'Sol Peruano',
             codigo: 'PEN',
             simbolo: 'S/',
-            paisId,
+            paisId: 'peru',
             activo: true,
-            esPrincipal: true
+            esPrincipal: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'usd',
             nombre: 'Dólar Estadounidense',
             codigo: 'USD',
             simbolo: '$',
-            paisId,
+            paisId: 'peru',
             activo: true,
-            esPrincipal: false
+            esPrincipal: false,
+            fechaCreacion: new Date()
           },
           {
             id: 'eur',
             nombre: 'Euro',
             codigo: 'EUR',
             simbolo: '€',
-            paisId,
+            paisId: 'peru',
             activo: true,
-            esPrincipal: false
+            esPrincipal: false,
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
@@ -1501,27 +1657,20 @@ export class NomencladoresService {
             nombre: 'Peso Colombiano',
             codigo: 'COP',
             simbolo: '$',
-            paisId,
+            paisId: 'colombia',
             activo: true,
-            esPrincipal: true
+            esPrincipal: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'usd',
+            id: 'usd_col',
             nombre: 'Dólar Estadounidense',
             codigo: 'USD',
             simbolo: 'US$',
-            paisId,
+            paisId: 'colombia',
             activo: true,
-            esPrincipal: false
-          },
-          {
-            id: 'eur',
-            nombre: 'Euro',
-            codigo: 'EUR',
-            simbolo: '€',
-            paisId,
-            activo: true,
-            esPrincipal: false
+            esPrincipal: false,
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
@@ -1531,48 +1680,43 @@ export class NomencladoresService {
             nombre: 'Peso Mexicano',
             codigo: 'MXN',
             simbolo: '$',
-            paisId,
+            paisId: 'mexico',
             activo: true,
-            esPrincipal: true
+            esPrincipal: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'usd',
+            id: 'usd_mx',
             nombre: 'Dólar Estadounidense',
             codigo: 'USD',
             simbolo: 'US$',
-            paisId,
+            paisId: 'mexico',
             activo: true,
-            esPrincipal: false
-          },
-          {
-            id: 'eur',
-            nombre: 'Euro',
-            codigo: 'EUR',
-            simbolo: '€',
-            paisId,
-            activo: true,
-            esPrincipal: false
+            esPrincipal: false,
+            fechaCreacion: new Date()
           }
         ];
       default:
         return [
           {
-            id: 'moneda1',
-            nombre: 'Moneda Principal',
-            codigo: 'MP',
+            id: 'moneda_local',
+            nombre: 'Moneda Local',
+            codigo: 'ML',
             simbolo: '$',
             paisId,
             activo: true,
-            esPrincipal: true
+            esPrincipal: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'usd',
+            id: 'usd_default',
             nombre: 'Dólar Estadounidense',
             codigo: 'USD',
             simbolo: 'US$',
             paisId,
             activo: true,
-            esPrincipal: false
+            esPrincipal: false,
+            fechaCreacion: new Date()
           }
         ];
     }
@@ -1586,36 +1730,41 @@ export class NomencladoresService {
             id: 'bcp',
             nombre: 'Banco de Crédito del Perú',
             codigo: 'BCP',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'bbva',
             nombre: 'BBVA',
             codigo: 'BBVA',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'interbank',
             nombre: 'Interbank',
             codigo: 'IBK',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'scotiabank',
             nombre: 'Scotiabank',
             codigo: 'SBP',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'banbif',
             nombre: 'BanBif',
             codigo: 'BIF',
-            paisId,
-            activo: true
+            paisId: 'peru',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'colombia':
@@ -1624,84 +1773,87 @@ export class NomencladoresService {
             id: 'bancolombia',
             nombre: 'Bancolombia',
             codigo: 'BCO',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'davivienda',
             nombre: 'Davivienda',
             codigo: 'DAV',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'bbva',
+            id: 'bbva_col',
             nombre: 'BBVA Colombia',
             codigo: 'BBVA',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'bogota',
+            id: 'banco_bogota',
             nombre: 'Banco de Bogotá',
             codigo: 'BOG',
-            paisId,
-            activo: true
+            paisId: 'colombia',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       case 'mexico':
         return [
           {
-            id: 'bbva',
+            id: 'bbva_mx',
             nombre: 'BBVA México',
             codigo: 'BBVA',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'banamex',
             nombre: 'Citibanamex',
             codigo: 'BANA',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
             id: 'banorte',
             nombre: 'Banorte',
             codigo: 'BNO',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'santander',
+            id: 'santander_mx',
             nombre: 'Santander México',
             codigo: 'SAN',
-            paisId,
-            activo: true
-          },
-          {
-            id: 'hsbc',
-            nombre: 'HSBC México',
-            codigo: 'HSBC',
-            paisId,
-            activo: true
+            paisId: 'mexico',
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
       default:
         return [
           {
-            id: 'banco1',
+            id: 'banco_principal',
             nombre: 'Banco Principal',
             codigo: 'BP',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           },
           {
-            id: 'banco2',
+            id: 'banco_secundario',
             nombre: 'Banco Secundario',
             codigo: 'BS',
             paisId,
-            activo: true
+            activo: true,
+            fechaCreacion: new Date()
           }
         ];
     }
