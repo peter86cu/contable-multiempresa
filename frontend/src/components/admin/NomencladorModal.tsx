@@ -89,11 +89,12 @@ export const NomencladorModal: React.FC<NomencladorModalProps> = ({
       await onSave(formData);
       setSuccess(true);
       
-      // Cerrar modal después de un breve retraso para mostrar el éxito
+      // Cerrar modal después de un breve retraso
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
+      console.error('Error en guardado:', err);
       setError(err instanceof Error ? err.message : 'Error al guardar');
     } finally {
       setSaving(false);
