@@ -234,7 +234,7 @@ export class NomencladoresService {
       
       if (!snapshot.empty) {
         console.log(`✅ Ya existen nomencladores para el país ${paisId}`);
-        return true;
+        return false;
       }
       
       // Crear batch para inserción masiva
