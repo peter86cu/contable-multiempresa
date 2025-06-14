@@ -107,7 +107,7 @@ function GestionNomencladores() {
           id: pais.id,
           nombre: pais.nombre,
           codigo: pais.codigo,
-          totalNomencladores: 0, // Se actualizará después
+          totalNomencladores: 0,
           tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
           tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
           tieneImpuestos: pais.tieneImpuestos || false,

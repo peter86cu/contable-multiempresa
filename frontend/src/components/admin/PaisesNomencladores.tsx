@@ -35,7 +35,6 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Doc. Factura</th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Impuestos</th>
             <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Formas Pago</th>
-            <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
             {(onEditPais || onDeletePais) && (
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
             )}
@@ -86,11 +85,6 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
                 ) : (
                   <X className="h-5 w-5 text-red-600 mx-auto" />
                 )}
-              </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
-                <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 text-indigo-800">
-                  {pais.totalNomencladores}
-                </span>
               </td>
               {(onEditPais || onDeletePais) && (
                 <td className="px-4 py-3 whitespace-nowrap text-center">
