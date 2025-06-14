@@ -422,6 +422,30 @@ function GestionNomencladores() {
         }
       }
       
+      // Actualizar la lista de países para marcar que el país tiene configurados los nomencladores
+      const paisesActualizados = [...paises];
+      const paisIndex = paisesActualizados.findIndex(p => p.id === selectedPais);
+      
+      if (paisIndex >= 0) {
+        // Actualizar el estado de configuración del país según el tipo de nomenclador
+        switch (nomencladorTipo) {
+          case 'tiposDocumentoIdentidad':
+            paisesActualizados[paisIndex].tieneDocumentoIdentidad = true;
+            break;
+          case 'tiposDocumentoFactura':
+            paisesActualizados[paisIndex].tieneDocumentoFactura = true;
+            break;
+          case 'tiposImpuesto':
+            paisesActualizados[paisIndex].tieneImpuestos = true;
+            break;
+          case 'formasPago':
+            paisesActualizados[paisIndex].tieneFormasPago = true;
+            break;
+        }
+        
+        setPaises(paisesActualizados);
+      }
+      
       showSuccess(
         'Nomenclador guardado',
         `El nomenclador ha sido guardado exitosamente`
@@ -430,8 +454,6 @@ function GestionNomencladores() {
       // Recargar datos
       await recargarDatos();
       
-      // Cerrar modal
-      setShowNomencladorModal(false);
     } catch (error) {
       showError(
         'Error al guardar nomenclador',
