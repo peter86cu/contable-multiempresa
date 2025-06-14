@@ -1,14 +1,13 @@
 import { 
   collection, 
-  query, 
-  where, 
-  orderBy, 
+  doc, 
   getDocs, 
   addDoc, 
   updateDoc, 
-  deleteDoc,
-  doc,
-  writeBatch,
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy,
   Timestamp,
   getDoc
 } from 'firebase/firestore';
@@ -25,417 +24,649 @@ import {
 } from '../../types/nomencladores';
 
 export class NomencladoresService {
-  // Obtener tipos de documentos de identidad por país
+  // ==================== TIPOS DE DOCUMENTO DE IDENTIDAD ====================
+  
+  // Obtener tipos de documento de identidad
   static async getTiposDocumentoIdentidad(paisId: string): Promise<TipoDocumentoIdentidad[]> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposDocumentoIdentidad(paisId);
       }
 
-      console.log(`🔍 Obteniendo tipos de documento de identidad para país: ${paisId}`);
+      console.log('🔍 Obteniendo tipos de documento de identidad para país:', paisId);
       
       const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
-      
-      // Usar query más simple para evitar problemas de índices
       const q = query(
         tiposDocRef,
-        where('paisId', '==', paisId)
+        where('paisId', '==', paisId),
+        orderBy('nombre')
       );
       
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        console.log('No se encontraron tipos de documento para el país, usando datos mock');
+        console.log('⚠️ No se encontraron tipos de documento de identidad, usando datos mock');
         return this.getMockTiposDocumentoIdentidad(paisId);
       }
       
-      // Mapear documentos a objetos y eliminar duplicados
-      const tiposMap = new Map<string, TipoDocumentoIdentidad>();
+      const tiposDoc = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as TipoDocumentoIdentidad[];
       
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!tiposMap.has(data.codigo)) {
-          tiposMap.set(data.codigo, {
-            id,
-            ...data
-          } as TipoDocumentoIdentidad);
-        }
-      });
-      
-      const tipos = Array.from(tiposMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposOrdenados = tipos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposOrdenados.length} tipos de documento de identidad`);
-      return tiposOrdenados;
+      console.log(`✅ Se encontraron ${tiposDoc.length} tipos de documento de identidad`);
+      return tiposDoc;
     } catch (error) {
       console.error('❌ Error obteniendo tipos de documento de identidad:', error);
-      throw error;
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposDocumentoIdentidad(paisId);
     }
   }
 
-  // Obtener tipos de documentos de factura por país
-  static async getTiposDocumentoFactura(paisId: string): Promise<TipoDocumentoFactura[]> {
+  // Crear tipo de documento de identidad
+  static async crearTipoDocumentoIdentidad(tipo: Omit<TipoDocumentoIdentidad, 'id' | 'fechaCreacion'>): Promise<string> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🔍 Obteniendo tipos de documento de factura para país: ${paisId}`);
+      console.log('📝 Creando nuevo tipo de documento de identidad:', tipo.nombre);
       
-      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
-      
-      // Usar query más simple para evitar problemas de índices compuestos
-      const q = query(
-        tiposDocRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron tipos de documento de factura para el país, usando datos mock');
-        return this.getMockTiposDocumentoFactura(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const tiposMap = new Map<string, TipoDocumentoFactura>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!tiposMap.has(data.codigo)) {
-          tiposMap.set(data.codigo, {
-            id,
-            ...data
-          } as TipoDocumentoFactura);
-        }
-      });
-      
-      const tipos = Array.from(tiposMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposOrdenados = tipos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposOrdenados.length} tipos de documento de factura`);
-      return tiposOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de documento de factura:', error);
-      throw error;
-    }
-  }
-
-  // Obtener tipos de impuestos
-  static async getTiposImpuesto(paisId: string): Promise<TipoImpuesto[]> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔍 Obteniendo tipos de impuesto para país: ${paisId}`);
-      
-      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
-      
-      // Usar query más simple para evitar problemas de índices
-      const q = query(
-        tiposImpuestoRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron tipos de impuesto para el país, usando datos mock');
-        return this.getMockTiposImpuesto(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const tiposMap = new Map<string, TipoImpuesto>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!tiposMap.has(data.codigo)) {
-          tiposMap.set(data.codigo, {
-            id,
-            ...data
-          } as TipoImpuesto);
-        }
-      });
-      
-      const tipos = Array.from(tiposMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposOrdenados = tipos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposOrdenados.length} tipos de impuesto`);
-      return tiposOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de impuesto:', error);
-      throw error;
-    }
-  }
-
-  // Obtener formas de pago
-  static async getFormasPago(paisId: string): Promise<FormaPago[]> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔍 Obteniendo formas de pago para país: ${paisId}`);
-      
-      const formasPagoRef = collection(db, 'formasPago');
-      
-      // Usar query más simple para evitar problemas de índices
-      const q = query(
-        formasPagoRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron formas de pago para el país, usando datos mock');
-        return this.getMockFormasPago(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const formasMap = new Map<string, FormaPago>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!formasMap.has(data.codigo)) {
-          formasMap.set(data.codigo, {
-            id,
-            ...data
-          } as FormaPago);
-        }
-      });
-      
-      const formas = Array.from(formasMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const formasOrdenadas = formas.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${formasOrdenadas.length} formas de pago`);
-      return formasOrdenadas;
-    } catch (error) {
-      console.error('❌ Error obteniendo formas de pago:', error);
-      throw error;
-    }
-  }
-
-  // Obtener tipos de movimiento de tesorería
-  static async getTiposMovimientoTesoreria(paisId: string): Promise<TipoMovimientoTesoreria[]> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔍 Obteniendo tipos de movimiento de tesorería para país: ${paisId}`);
-      
-      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      
-      // Usar query más simple para evitar problemas de índices
-      const q = query(
-        tiposMovimientoRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron tipos de movimiento de tesorería para el país, usando datos mock');
-        return this.getMockTiposMovimientoTesoreria(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const tiposMap = new Map<string, TipoMovimientoTesoreria>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!tiposMap.has(data.codigo)) {
-          tiposMap.set(data.codigo, {
-            id,
-            ...data
-          } as TipoMovimientoTesoreria);
-        }
-      });
-      
-      const tipos = Array.from(tiposMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposOrdenados = tipos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposOrdenados.length} tipos de movimiento de tesorería`);
-      return tiposOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  // Obtener tipos de moneda por país
-  static async getTiposMoneda(paisId: string): Promise<TipoMoneda[]> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔍 Obteniendo tipos de moneda para país: ${paisId}`);
-      
-      const tiposMonedaRef = collection(db, 'tiposMoneda');
-      
-      // Usar query más simple para evitar problemas de índices
-      const q = query(
-        tiposMonedaRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron tipos de moneda para el país, usando datos mock');
-        return this.getMockTiposMoneda(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const tiposMap = new Map<string, TipoMoneda>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!tiposMap.has(data.codigo)) {
-          tiposMap.set(data.codigo, {
-            id,
-            ...data
-          } as TipoMoneda);
-        }
-      });
-      
-      const tipos = Array.from(tiposMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposOrdenados = tipos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposOrdenados.length} tipos de moneda`);
-      return tiposOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de moneda:', error);
-      throw error;
-    }
-  }
-
-  // Obtener bancos por país
-  static async getBancos(paisId: string): Promise<Banco[]> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔍 Obteniendo bancos para país: ${paisId}`);
-      
-      const bancosRef = collection(db, 'bancos');
-      
-      // Usar query más simple para evitar problemas de índices
-      const q = query(
-        bancosRef,
-        where('paisId', '==', paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('No se encontraron bancos para el país, usando datos mock');
-        return this.getMockBancos(paisId);
-      }
-      
-      // Mapear documentos a objetos y eliminar duplicados
-      const bancosMap = new Map<string, Banco>();
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const id = doc.id;
-        
-        // Solo agregar si no existe o si tiene un ID diferente
-        if (!bancosMap.has(data.codigo)) {
-          bancosMap.set(data.codigo, {
-            id,
-            ...data
-          } as Banco);
-        }
-      });
-      
-      const bancos = Array.from(bancosMap.values());
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const bancosOrdenados = bancos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${bancosOrdenados.length} bancos`);
-      return bancosOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo bancos:', error);
-      throw error;
-    }
-  }
-
-  // NUEVAS FUNCIONES CRUD PARA NOMENCLADORES
-
-  // Crear tipo de moneda
-  static async crearTipoMoneda(tipoMoneda: Omit<TipoMoneda, 'id'>): Promise<string> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`📝 Creando nuevo tipo de moneda: ${tipoMoneda.nombre}`);
-      
-      const tiposMonedaRef = collection(db, 'tiposMoneda');
-      
-      // Verificar si ya existe un tipo de moneda con el mismo código
-      const q = query(
-        tiposMonedaRef,
-        where('codigo', '==', tipoMoneda.codigo),
-        where('paisId', '==', tipoMoneda.paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (!snapshot.empty) {
-        throw new Error(`Ya existe un tipo de moneda con el código ${tipoMoneda.codigo}`);
-      }
-      
-      const nuevoTipoMoneda = {
-        ...tipoMoneda,
+      const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
+      const nuevoTipo = {
+        ...tipo,
         fechaCreacion: Timestamp.now()
       };
       
-      const docRef = await addDoc(tiposMonedaRef, nuevoTipoMoneda);
+      const docRef = await addDoc(tiposDocRef, nuevoTipo);
+      console.log(`✅ Tipo de documento de identidad creado con ID: ${docRef.id}`);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error creando tipo de documento de identidad:', error);
+      throw error;
+    }
+  }
+
+  // Actualizar tipo de documento de identidad
+  static async actualizarTipoDocumentoIdentidad(id: string, datos: Partial<TipoDocumentoIdentidad>): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Actualizando tipo de documento de identidad ${id}`);
+      
+      const tipoDocRef = doc(db, 'tiposDocumentoIdentidad', id);
+      await updateDoc(tipoDocRef, {
+        ...datos,
+        fechaModificacion: Timestamp.now()
+      });
+      
+      console.log('✅ Tipo de documento de identidad actualizado correctamente');
+    } catch (error) {
+      console.error('❌ Error actualizando tipo de documento de identidad:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar tipo de documento de identidad
+  static async eliminarTipoDocumentoIdentidad(id: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🗑️ Eliminando tipo de documento de identidad ${id}`);
+      
+      const tipoDocRef = doc(db, 'tiposDocumentoIdentidad', id);
+      await deleteDoc(tipoDocRef);
+      
+      console.log('✅ Tipo de documento de identidad eliminado correctamente');
+    } catch (error) {
+      console.error('❌ Error eliminando tipo de documento de identidad:', error);
+      throw error;
+    }
+  }
+
+  // ==================== TIPOS DE DOCUMENTO DE FACTURA ====================
+  
+  // Obtener tipos de documento de factura
+  static async getTiposDocumentoFactura(paisId: string): Promise<TipoDocumentoFactura[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposDocumentoFactura(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de documento de factura para país:', paisId);
+      
+      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
+      const q = query(
+        tiposDocRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de documento de factura, usando datos mock');
+        return this.getMockTiposDocumentoFactura(paisId);
+      }
+      
+      const tiposDoc = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as TipoDocumentoFactura[];
+      
+      console.log(`✅ Se encontraron ${tiposDoc.length} tipos de documento de factura`);
+      return tiposDoc;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de documento de factura:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposDocumentoFactura(paisId);
+    }
+  }
+
+  // Crear tipo de documento de factura
+  static async crearTipoDocumentoFactura(tipo: Omit<TipoDocumentoFactura, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log('📝 Creando nuevo tipo de documento de factura:', tipo.nombre);
+      
+      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
+      const nuevoTipo = {
+        ...tipo,
+        fechaCreacion: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(tiposDocRef, nuevoTipo);
+      console.log(`✅ Tipo de documento de factura creado con ID: ${docRef.id}`);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error creando tipo de documento de factura:', error);
+      throw error;
+    }
+  }
+
+  // Actualizar tipo de documento de factura
+  static async actualizarTipoDocumentoFactura(id: string, datos: Partial<TipoDocumentoFactura>): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Actualizando tipo de documento de factura ${id}`);
+      
+      const tipoDocRef = doc(db, 'tiposDocumentoFactura', id);
+      await updateDoc(tipoDocRef, {
+        ...datos,
+        fechaModificacion: Timestamp.now()
+      });
+      
+      console.log('✅ Tipo de documento de factura actualizado correctamente');
+    } catch (error) {
+      console.error('❌ Error actualizando tipo de documento de factura:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar tipo de documento de factura
+  static async eliminarTipoDocumentoFactura(id: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🗑️ Eliminando tipo de documento de factura ${id}`);
+      
+      const tipoDocRef = doc(db, 'tiposDocumentoFactura', id);
+      await deleteDoc(tipoDocRef);
+      
+      console.log('✅ Tipo de documento de factura eliminado correctamente');
+    } catch (error) {
+      console.error('❌ Error eliminando tipo de documento de factura:', error);
+      throw error;
+    }
+  }
+
+  // ==================== TIPOS DE IMPUESTO ====================
+  
+  // Obtener tipos de impuesto
+  static async getTiposImpuesto(paisId: string): Promise<TipoImpuesto[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposImpuesto(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de impuesto para país:', paisId);
+      
+      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
+      const q = query(
+        tiposImpuestoRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de impuesto, usando datos mock');
+        return this.getMockTiposImpuesto(paisId);
+      }
+      
+      const tiposImpuesto = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as TipoImpuesto[];
+      
+      console.log(`✅ Se encontraron ${tiposImpuesto.length} tipos de impuesto`);
+      return tiposImpuesto;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de impuesto:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposImpuesto(paisId);
+    }
+  }
+
+  // Crear tipo de impuesto
+  static async crearTipoImpuesto(tipo: Omit<TipoImpuesto, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log('📝 Creando nuevo tipo de impuesto:', tipo.nombre);
+      
+      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
+      const nuevoTipo = {
+        ...tipo,
+        fechaCreacion: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(tiposImpuestoRef, nuevoTipo);
+      console.log(`✅ Tipo de impuesto creado con ID: ${docRef.id}`);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error creando tipo de impuesto:', error);
+      throw error;
+    }
+  }
+
+  // Actualizar tipo de impuesto
+  static async actualizarTipoImpuesto(id: string, datos: Partial<TipoImpuesto>): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Actualizando tipo de impuesto ${id}`);
+      
+      const tipoImpuestoRef = doc(db, 'tiposImpuesto', id);
+      await updateDoc(tipoImpuestoRef, {
+        ...datos,
+        fechaModificacion: Timestamp.now()
+      });
+      
+      console.log('✅ Tipo de impuesto actualizado correctamente');
+    } catch (error) {
+      console.error('❌ Error actualizando tipo de impuesto:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar tipo de impuesto
+  static async eliminarTipoImpuesto(id: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🗑️ Eliminando tipo de impuesto ${id}`);
+      
+      const tipoImpuestoRef = doc(db, 'tiposImpuesto', id);
+      await deleteDoc(tipoImpuestoRef);
+      
+      console.log('✅ Tipo de impuesto eliminado correctamente');
+    } catch (error) {
+      console.error('❌ Error eliminando tipo de impuesto:', error);
+      throw error;
+    }
+  }
+
+  // ==================== FORMAS DE PAGO ====================
+  
+  // Obtener formas de pago
+  static async getFormasPago(paisId: string): Promise<FormaPago[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockFormasPago(paisId);
+      }
+
+      console.log('🔍 Obteniendo formas de pago para país:', paisId);
+      
+      const formasPagoRef = collection(db, 'formasPago');
+      const q = query(
+        formasPagoRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron formas de pago, usando datos mock');
+        return this.getMockFormasPago(paisId);
+      }
+      
+      const formasPago = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as FormaPago[];
+      
+      console.log(`✅ Se encontraron ${formasPago.length} formas de pago`);
+      return formasPago;
+    } catch (error) {
+      console.error('❌ Error obteniendo formas de pago:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockFormasPago(paisId);
+    }
+  }
+
+  // Crear forma de pago
+  static async crearFormaPago(forma: Omit<FormaPago, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log('📝 Creando nueva forma de pago:', forma.nombre);
+      
+      const formasPagoRef = collection(db, 'formasPago');
+      const nuevaForma = {
+        ...forma,
+        fechaCreacion: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(formasPagoRef, nuevaForma);
+      console.log(`✅ Forma de pago creada con ID: ${docRef.id}`);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error creando forma de pago:', error);
+      throw error;
+    }
+  }
+
+  // Actualizar forma de pago
+  static async actualizarFormaPago(id: string, datos: Partial<FormaPago>): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Actualizando forma de pago ${id}`);
+      
+      const formaPagoRef = doc(db, 'formasPago', id);
+      await updateDoc(formaPagoRef, {
+        ...datos,
+        fechaModificacion: Timestamp.now()
+      });
+      
+      console.log('✅ Forma de pago actualizada correctamente');
+    } catch (error) {
+      console.error('❌ Error actualizando forma de pago:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar forma de pago
+  static async eliminarFormaPago(id: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🗑️ Eliminando forma de pago ${id}`);
+      
+      const formaPagoRef = doc(db, 'formasPago', id);
+      await deleteDoc(formaPagoRef);
+      
+      console.log('✅ Forma de pago eliminada correctamente');
+    } catch (error) {
+      console.error('❌ Error eliminando forma de pago:', error);
+      throw error;
+    }
+  }
+
+  // ==================== TIPOS DE MOVIMIENTO DE TESORERÍA ====================
+  
+  // Obtener tipos de movimiento de tesorería
+  static async getTiposMovimientoTesoreria(paisId: string): Promise<TipoMovimientoTesoreria[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposMovimientoTesoreria(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de movimiento de tesorería para país:', paisId);
+      
+      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
+      const q = query(
+        tiposMovimientoRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de movimiento de tesorería, usando datos mock');
+        return this.getMockTiposMovimientoTesoreria(paisId);
+      }
+      
+      const tiposMovimiento = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as TipoMovimientoTesoreria[];
+      
+      console.log(`✅ Se encontraron ${tiposMovimiento.length} tipos de movimiento de tesorería`);
+      return tiposMovimiento;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de movimiento de tesorería:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposMovimientoTesoreria(paisId);
+    }
+  }
+
+  // Crear tipo de movimiento de tesorería
+  static async crearTipoMovimientoTesoreria(tipo: Omit<TipoMovimientoTesoreria, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log('📝 Creando nuevo tipo de movimiento de tesorería:', tipo.nombre);
+      
+      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
+      const nuevoTipo = {
+        ...tipo,
+        fechaCreacion: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(tiposMovimientoRef, nuevoTipo);
+      console.log(`✅ Tipo de movimiento de tesorería creado con ID: ${docRef.id}`);
+      return docRef.id;
+    } catch (error) {
+      console.error('❌ Error creando tipo de movimiento de tesorería:', error);
+      throw error;
+    }
+  }
+
+  // Actualizar tipo de movimiento de tesorería
+  static async actualizarTipoMovimientoTesoreria(id: string, datos: Partial<TipoMovimientoTesoreria>): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Actualizando tipo de movimiento de tesorería ${id}`);
+      
+      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
+      await updateDoc(tipoMovimientoRef, {
+        ...datos,
+        fechaModificacion: Timestamp.now()
+      });
+      
+      console.log('✅ Tipo de movimiento de tesorería actualizado correctamente');
+    } catch (error) {
+      console.error('❌ Error actualizando tipo de movimiento de tesorería:', error);
+      throw error;
+    }
+  }
+
+  // Eliminar tipo de movimiento de tesorería
+  static async eliminarTipoMovimientoTesoreria(id: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🗑️ Eliminando tipo de movimiento de tesorería ${id}`);
+      
+      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
+      await deleteDoc(tipoMovimientoRef);
+      
+      console.log('✅ Tipo de movimiento de tesorería eliminado correctamente');
+    } catch (error) {
+      console.error('❌ Error eliminando tipo de movimiento de tesorería:', error);
+      throw error;
+    }
+  }
+
+  // ==================== TIPOS DE MONEDA ====================
+  
+  // Obtener tipos de moneda
+  static async getTiposMoneda(paisId: string): Promise<TipoMoneda[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposMoneda(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de moneda para país:', paisId);
+      
+      const tiposMonedaRef = collection(db, 'tiposMoneda');
+      const q = query(
+        tiposMonedaRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de moneda, usando datos mock');
+        return this.getMockTiposMoneda(paisId);
+      }
+      
+      const tiposMoneda = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as TipoMoneda[];
+      
+      console.log(`✅ Se encontraron ${tiposMoneda.length} tipos de moneda`);
+      return tiposMoneda;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de moneda:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposMoneda(paisId);
+    }
+  }
+
+  // Crear tipo de moneda
+  static async crearTipoMoneda(tipo: Omit<TipoMoneda, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log('📝 Creando nuevo tipo de moneda:', tipo.nombre);
+      
+      const tiposMonedaRef = collection(db, 'tiposMoneda');
+      const nuevoTipo = {
+        ...tipo,
+        fechaCreacion: Timestamp.now()
+      };
+      
+      const docRef = await addDoc(tiposMonedaRef, nuevoTipo);
       console.log(`✅ Tipo de moneda creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
@@ -447,27 +678,21 @@ export class NomencladoresService {
   // Actualizar tipo de moneda
   static async actualizarTipoMoneda(id: string, datos: Partial<TipoMoneda>): Promise<void> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🔄 Actualizando tipo de moneda: ${id}`);
+      console.log(`🔄 Actualizando tipo de moneda ${id}`);
       
       const tipoMonedaRef = doc(db, 'tiposMoneda', id);
-      
-      // Verificar si existe
-      const tipoMonedaDoc = await getDoc(tipoMonedaRef);
-      if (!tipoMonedaDoc.exists()) {
-        throw new Error(`No existe un tipo de moneda con el ID ${id}`);
-      }
-      
       await updateDoc(tipoMonedaRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
       });
       
-      console.log(`✅ Tipo de moneda actualizado correctamente`);
+      console.log('✅ Tipo de moneda actualizado correctamente');
     } catch (error) {
       console.error('❌ Error actualizando tipo de moneda:', error);
       throw error;
@@ -477,55 +702,81 @@ export class NomencladoresService {
   // Eliminar tipo de moneda
   static async eliminarTipoMoneda(id: string): Promise<void> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🗑️ Eliminando tipo de moneda: ${id}`);
+      console.log(`🗑️ Eliminando tipo de moneda ${id}`);
       
       const tipoMonedaRef = doc(db, 'tiposMoneda', id);
-      
-      // Verificar si existe
-      const tipoMonedaDoc = await getDoc(tipoMonedaRef);
-      if (!tipoMonedaDoc.exists()) {
-        throw new Error(`No existe un tipo de moneda con el ID ${id}`);
-      }
-      
       await deleteDoc(tipoMonedaRef);
       
-      console.log(`✅ Tipo de moneda eliminado correctamente`);
+      console.log('✅ Tipo de moneda eliminado correctamente');
     } catch (error) {
       console.error('❌ Error eliminando tipo de moneda:', error);
       throw error;
     }
   }
 
-  // Crear banco
-  static async crearBanco(banco: Omit<Banco, 'id'>): Promise<string> {
+  // ==================== BANCOS ====================
+  
+  // Obtener bancos
+  static async getBancos(paisId: string): Promise<Banco[]> {
     try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockBancos(paisId);
+      }
+
+      console.log('🔍 Obteniendo bancos para país:', paisId);
+      
+      const bancosRef = collection(db, 'bancos');
+      const q = query(
+        bancosRef,
+        where('paisId', '==', paisId),
+        orderBy('nombre')
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron bancos, usando datos mock');
+        return this.getMockBancos(paisId);
+      }
+      
+      const bancos = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        fechaCreacion: doc.data().fechaCreacion?.toDate() || new Date()
+      })) as Banco[];
+      
+      console.log(`✅ Se encontraron ${bancos.length} bancos`);
+      return bancos;
+    } catch (error) {
+      console.error('❌ Error obteniendo bancos:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockBancos(paisId);
+    }
+  }
+
+  // Crear banco
+  static async crearBanco(banco: Omit<Banco, 'id' | 'fechaCreacion'>): Promise<string> {
+    try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`📝 Creando nuevo banco: ${banco.nombre}`);
+      console.log('📝 Creando nuevo banco:', banco.nombre);
       
       const bancosRef = collection(db, 'bancos');
-      
-      // Verificar si ya existe un banco con el mismo código
-      const q = query(
-        bancosRef,
-        where('codigo', '==', banco.codigo),
-        where('paisId', '==', banco.paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (!snapshot.empty) {
-        throw new Error(`Ya existe un banco con el código ${banco.codigo}`);
-      }
-      
       const nuevoBanco = {
         ...banco,
         fechaCreacion: Timestamp.now()
@@ -543,27 +794,21 @@ export class NomencladoresService {
   // Actualizar banco
   static async actualizarBanco(id: string, datos: Partial<Banco>): Promise<void> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🔄 Actualizando banco: ${id}`);
+      console.log(`🔄 Actualizando banco ${id}`);
       
       const bancoRef = doc(db, 'bancos', id);
-      
-      // Verificar si existe
-      const bancoDoc = await getDoc(bancoRef);
-      if (!bancoDoc.exists()) {
-        throw new Error(`No existe un banco con el ID ${id}`);
-      }
-      
       await updateDoc(bancoRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
       });
       
-      console.log(`✅ Banco actualizado correctamente`);
+      console.log('✅ Banco actualizado correctamente');
     } catch (error) {
       console.error('❌ Error actualizando banco:', error);
       throw error;
@@ -573,287 +818,143 @@ export class NomencladoresService {
   // Eliminar banco
   static async eliminarBanco(id: string): Promise<void> {
     try {
+      // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
       if (!isAuth) {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🗑️ Eliminando banco: ${id}`);
+      console.log(`🗑️ Eliminando banco ${id}`);
       
       const bancoRef = doc(db, 'bancos', id);
-      
-      // Verificar si existe
-      const bancoDoc = await getDoc(bancoRef);
-      if (!bancoDoc.exists()) {
-        throw new Error(`No existe un banco con el ID ${id}`);
-      }
-      
       await deleteDoc(bancoRef);
       
-      console.log(`✅ Banco eliminado correctamente`);
+      console.log('✅ Banco eliminado correctamente');
     } catch (error) {
       console.error('❌ Error eliminando banco:', error);
       throw error;
     }
   }
 
-  // Crear tipo de movimiento de tesorería
-  static async crearTipoMovimientoTesoreria(tipoMovimiento: Omit<TipoMovimientoTesoreria, 'id'>): Promise<string> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`📝 Creando nuevo tipo de movimiento de tesorería: ${tipoMovimiento.nombre}`);
-      
-      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      
-      // Verificar si ya existe un tipo de movimiento con el mismo código
-      const q = query(
-        tiposMovimientoRef,
-        where('codigo', '==', tipoMovimiento.codigo),
-        where('paisId', '==', tipoMovimiento.paisId)
-      );
-      
-      const snapshot = await getDocs(q);
-      
-      if (!snapshot.empty) {
-        throw new Error(`Ya existe un tipo de movimiento con el código ${tipoMovimiento.codigo}`);
-      }
-      
-      const nuevoTipoMovimiento = {
-        ...tipoMovimiento,
-        fechaCreacion: Timestamp.now()
-      };
-      
-      const docRef = await addDoc(tiposMovimientoRef, nuevoTipoMovimiento);
-      console.log(`✅ Tipo de movimiento creado con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  // Actualizar tipo de movimiento de tesorería
-  static async actualizarTipoMovimientoTesoreria(id: string, datos: Partial<TipoMovimientoTesoreria>): Promise<void> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando tipo de movimiento de tesorería: ${id}`);
-      
-      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
-      
-      // Verificar si existe
-      const tipoMovimientoDoc = await getDoc(tipoMovimientoRef);
-      if (!tipoMovimientoDoc.exists()) {
-        throw new Error(`No existe un tipo de movimiento con el ID ${id}`);
-      }
-      
-      await updateDoc(tipoMovimientoRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Tipo de movimiento actualizado correctamente`);
-    } catch (error) {
-      console.error('❌ Error actualizando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  // Eliminar tipo de movimiento de tesorería
-  static async eliminarTipoMovimientoTesoreria(id: string): Promise<void> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de movimiento de tesorería: ${id}`);
-      
-      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
-      
-      // Verificar si existe
-      const tipoMovimientoDoc = await getDoc(tipoMovimientoRef);
-      if (!tipoMovimientoDoc.exists()) {
-        throw new Error(`No existe un tipo de movimiento con el ID ${id}`);
-      }
-      
-      await deleteDoc(tipoMovimientoRef);
-      
-      console.log(`✅ Tipo de movimiento eliminado correctamente`);
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  // Inicializar nomencladores para un país
-  static async inicializarNomencladores(paisId: string): Promise<void> {
-    try {
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, saltando inicialización');
-        return;
-      }
-
-      // Verificar si ya existen nomencladores para este país
-      const tiposDocIdentidadRef = collection(db, 'tiposDocumentoIdentidad');
-      const q = query(tiposDocIdentidadRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (!snapshot.empty) {
-        console.log(`Ya existen nomencladores para el país ${paisId}`);
-        return;
-      }
-
-      console.log(`🔄 Inicializando nomencladores para país: ${paisId}`);
-
-      // Crear lote para inserción masiva
-      const batch = writeBatch(db);
-      
-      // Insertar tipos de documento de identidad
-      const tiposDocIdentidad = this.getMockTiposDocumentoIdentidad(paisId);
-      tiposDocIdentidad.forEach(tipo => {
-        const docRef = doc(tiposDocIdentidadRef);
-        batch.set(docRef, {
-          ...tipo,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar tipos de documento de factura
-      const tiposDocFacturaRef = collection(db, 'tiposDocumentoFactura');
-      const tiposDocFactura = this.getMockTiposDocumentoFactura(paisId);
-      tiposDocFactura.forEach(tipo => {
-        const docRef = doc(tiposDocFacturaRef);
-        batch.set(docRef, {
-          ...tipo,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar tipos de impuestos
-      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
-      const tiposImpuesto = this.getMockTiposImpuesto(paisId);
-      tiposImpuesto.forEach(tipo => {
-        const docRef = doc(tiposImpuestoRef);
-        batch.set(docRef, {
-          ...tipo,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar formas de pago
-      const formasPagoRef = collection(db, 'formasPago');
-      const formasPago = this.getMockFormasPago(paisId);
-      formasPago.forEach(forma => {
-        const docRef = doc(formasPagoRef);
-        batch.set(docRef, {
-          ...forma,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar tipos de movimiento de tesorería
-      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      const tiposMovimiento = this.getMockTiposMovimientoTesoreria(paisId);
-      tiposMovimiento.forEach(tipo => {
-        const docRef = doc(tiposMovimientoRef);
-        batch.set(docRef, {
-          ...tipo,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar tipos de moneda
-      const tiposMonedaRef = collection(db, 'tiposMoneda');
-      const tiposMoneda = this.getMockTiposMoneda(paisId);
-      tiposMoneda.forEach(tipo => {
-        const docRef = doc(tiposMonedaRef);
-        batch.set(docRef, {
-          ...tipo,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Insertar bancos
-      const bancosRef = collection(db, 'bancos');
-      const bancos = this.getMockBancos(paisId);
-      bancos.forEach(banco => {
-        const docRef = doc(bancosRef);
-        batch.set(docRef, {
-          ...banco,
-          fechaCreacion: Timestamp.now()
-        });
-      });
-      
-      // Ejecutar batch
-      await batch.commit();
-      console.log(`✅ Nomencladores inicializados para el país ${paisId}`);
-    } catch (error) {
-      console.error('❌ Error inicializando nomencladores:', error);
-      throw error;
-    }
-  }
-
-  // Datos mock para desarrollo
+  // ==================== DATOS MOCK PARA DESARROLLO ====================
+  
+  // Datos mock para tipos de documento de identidad
   static getMockTiposDocumentoIdentidad(paisId: string): TipoDocumentoIdentidad[] {
     switch (paisId) {
       case 'peru':
         return [
-          { id: 'dni', nombre: 'DNI', codigo: '1', descripcion: 'Documento Nacional de Identidad', paisId, activo: true },
-          { id: 'ruc', nombre: 'RUC', codigo: '6', descripcion: 'Registro Único de Contribuyentes', paisId, activo: true },
-          { id: 'ce', nombre: 'Carnet de Extranjería', codigo: '4', descripcion: 'Carnet de Extranjería', paisId, activo: true },
-          { id: 'pasaporte', nombre: 'Pasaporte', codigo: '7', descripcion: 'Pasaporte', paisId, activo: true }
+          {
+            id: 'dni-pe',
+            nombre: 'DNI',
+            codigo: '1',
+            descripcion: 'Documento Nacional de Identidad',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'ruc-pe',
+            nombre: 'RUC',
+            codigo: '6',
+            descripcion: 'Registro Único de Contribuyentes',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'ce-pe',
+            nombre: 'Carnet de Extranjería',
+            codigo: '4',
+            descripcion: 'Carnet de Extranjería',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'pasaporte-pe',
+            nombre: 'Pasaporte',
+            codigo: '7',
+            descripcion: 'Pasaporte',
+            paisId: 'peru',
+            activo: true
+          }
         ];
       case 'colombia':
         return [
-          { id: 'cc', nombre: 'Cédula de Ciudadanía', codigo: '13', descripcion: 'Cédula de Ciudadanía', paisId, activo: true },
-          { id: 'nit', nombre: 'NIT', codigo: '31', descripcion: 'Número de Identificación Tributaria', paisId, activo: true },
-          { id: 'ce', nombre: 'Cédula de Extranjería', codigo: '22', descripcion: 'Cédula de Extranjería', paisId, activo: true },
-          { id: 'pasaporte', nombre: 'Pasaporte', codigo: '41', descripcion: 'Pasaporte', paisId, activo: true }
+          {
+            id: 'cc-co',
+            nombre: 'Cédula de Ciudadanía',
+            codigo: 'CC',
+            descripcion: 'Cédula de Ciudadanía',
+            paisId: 'colombia',
+            activo: true
+          },
+          {
+            id: 'nit-co',
+            nombre: 'NIT',
+            codigo: 'NIT',
+            descripcion: 'Número de Identificación Tributaria',
+            paisId: 'colombia',
+            activo: true
+          },
+          {
+            id: 'ce-co',
+            nombre: 'Cédula de Extranjería',
+            codigo: 'CE',
+            descripcion: 'Cédula de Extranjería',
+            paisId: 'colombia',
+            activo: true
+          }
         ];
       case 'mexico':
         return [
-          { id: 'rfc', nombre: 'RFC', codigo: 'RFC', descripcion: 'Registro Federal de Contribuyentes', paisId, activo: true },
-          { id: 'curp', nombre: 'CURP', codigo: 'CURP', descripcion: 'Clave Única de Registro de Población', paisId, activo: true },
-          { id: 'ine', nombre: 'INE', codigo: 'INE', descripcion: 'Instituto Nacional Electoral', paisId, activo: true }
-        ];
-      case 'argentina':
-        return [
-          { id: 'cuit', nombre: 'CUIT', codigo: '80', descripcion: 'Clave Única de Identificación Tributaria', paisId, activo: true },
-          { id: 'cuil', nombre: 'CUIL', codigo: '86', descripcion: 'Código Único de Identificación Laboral', paisId, activo: true },
-          { id: 'dni', nombre: 'DNI', codigo: '96', descripcion: 'Documento Nacional de Identidad', paisId, activo: true }
-        ];
-      case 'chile':
-        return [
-          { id: 'rut', nombre: 'RUT', codigo: 'RUT', descripcion: 'Rol Único Tributario', paisId, activo: true },
-          { id: 'pasaporte', nombre: 'Pasaporte', codigo: 'PAS', descripcion: 'Pasaporte', paisId, activo: true }
+          {
+            id: 'rfc-mx',
+            nombre: 'RFC',
+            codigo: 'RFC',
+            descripcion: 'Registro Federal de Contribuyentes',
+            paisId: 'mexico',
+            activo: true
+          },
+          {
+            id: 'curp-mx',
+            nombre: 'CURP',
+            codigo: 'CURP',
+            descripcion: 'Clave Única de Registro de Población',
+            paisId: 'mexico',
+            activo: true
+          }
         ];
       default:
         return [
-          { id: 'doc', nombre: 'Documento de Identidad', codigo: '1', descripcion: 'Documento de Identidad', paisId, activo: true },
-          { id: 'tax', nombre: 'Identificación Tributaria', codigo: '2', descripcion: 'Identificación Tributaria', paisId, activo: true }
+          {
+            id: 'doc-default',
+            nombre: 'Documento de Identidad',
+            codigo: 'DI',
+            descripcion: 'Documento de Identidad Genérico',
+            paisId,
+            activo: true
+          },
+          {
+            id: 'tax-default',
+            nombre: 'Identificación Fiscal',
+            codigo: 'IF',
+            descripcion: 'Identificación Fiscal Genérica',
+            paisId,
+            activo: true
+          }
         ];
     }
   }
 
+  // Datos mock para tipos de documento de factura
   static getMockTiposDocumentoFactura(paisId: string): TipoDocumentoFactura[] {
     switch (paisId) {
       case 'peru':
         return [
-          { 
-            id: 'FACTURA', 
-            nombre: 'Factura', 
-            codigo: '01', 
-            descripcion: 'Factura Electrónica', 
-            paisId, 
+          {
+            id: 'factura-pe',
+            nombre: 'Factura',
+            codigo: '01',
+            descripcion: 'Factura Electrónica',
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -862,12 +963,12 @@ export class NomencladoresService {
             prefijo: 'F',
             formato: 'F###-########'
           },
-          { 
-            id: 'BOLETA', 
-            nombre: 'Boleta', 
-            codigo: '03', 
-            descripcion: 'Boleta de Venta Electrónica', 
-            paisId, 
+          {
+            id: 'boleta-pe',
+            nombre: 'Boleta',
+            codigo: '03',
+            descripcion: 'Boleta de Venta Electrónica',
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: false,
@@ -876,12 +977,12 @@ export class NomencladoresService {
             prefijo: 'B',
             formato: 'B###-########'
           },
-          { 
-            id: 'NOTA_CREDITO', 
-            nombre: 'Nota de Crédito', 
-            codigo: '07', 
-            descripcion: 'Nota de Crédito Electrónica', 
-            paisId, 
+          {
+            id: 'nc-pe',
+            nombre: 'Nota de Crédito',
+            codigo: '07',
+            descripcion: 'Nota de Crédito Electrónica',
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -890,12 +991,12 @@ export class NomencladoresService {
             prefijo: 'NC',
             formato: 'NC##-########'
           },
-          { 
-            id: 'NOTA_DEBITO', 
-            nombre: 'Nota de Débito', 
-            codigo: '08', 
-            descripcion: 'Nota de Débito Electrónica', 
-            paisId, 
+          {
+            id: 'nd-pe',
+            nombre: 'Nota de Débito',
+            codigo: '08',
+            descripcion: 'Nota de Débito Electrónica',
+            paisId: 'peru',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -907,12 +1008,12 @@ export class NomencladoresService {
         ];
       case 'colombia':
         return [
-          { 
-            id: 'FACTURA', 
-            nombre: 'Factura Electrónica', 
-            codigo: 'FE', 
-            descripcion: 'Factura Electrónica de Venta', 
-            paisId, 
+          {
+            id: 'factura-co',
+            nombre: 'Factura Electrónica',
+            codigo: 'FE',
+            descripcion: 'Factura Electrónica',
+            paisId: 'colombia',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -921,12 +1022,12 @@ export class NomencladoresService {
             prefijo: 'FE',
             formato: 'FE##########'
           },
-          { 
-            id: 'NOTA_CREDITO', 
-            nombre: 'Nota Crédito', 
-            codigo: 'NC', 
-            descripcion: 'Nota Crédito Electrónica', 
-            paisId, 
+          {
+            id: 'nc-co',
+            nombre: 'Nota Crédito',
+            codigo: 'NC',
+            descripcion: 'Nota Crédito Electrónica',
+            paisId: 'colombia',
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -934,61 +1035,16 @@ export class NomencladoresService {
             afectaContabilidad: true,
             prefijo: 'NC',
             formato: 'NC##########'
-          },
-          { 
-            id: 'NOTA_DEBITO', 
-            nombre: 'Nota Débito', 
-            codigo: 'ND', 
-            descripcion: 'Nota Débito Electrónica', 
-            paisId, 
-            activo: true,
-            requiereImpuesto: true,
-            requiereCliente: true,
-            afectaInventario: true,
-            afectaContabilidad: true,
-            prefijo: 'ND',
-            formato: 'ND##########'
-          }
-        ];
-      case 'mexico':
-        return [
-          { 
-            id: 'FACTURA', 
-            nombre: 'CFDI', 
-            codigo: 'I', 
-            descripcion: 'Comprobante Fiscal Digital por Internet', 
-            paisId, 
-            activo: true,
-            requiereImpuesto: true,
-            requiereCliente: true,
-            afectaInventario: true,
-            afectaContabilidad: true,
-            prefijo: 'CFDI',
-            formato: 'CFDI-########'
-          },
-          { 
-            id: 'NOTA_CREDITO', 
-            nombre: 'Nota de Crédito', 
-            codigo: 'E', 
-            descripcion: 'Nota de Crédito CFDI', 
-            paisId, 
-            activo: true,
-            requiereImpuesto: true,
-            requiereCliente: true,
-            afectaInventario: true,
-            afectaContabilidad: true,
-            prefijo: 'NC',
-            formato: 'NC-########'
           }
         ];
       default:
         return [
-          { 
-            id: 'FACTURA', 
-            nombre: 'Factura', 
-            codigo: 'F', 
-            descripcion: 'Factura Estándar', 
-            paisId, 
+          {
+            id: 'factura-default',
+            nombre: 'Factura',
+            codigo: 'F',
+            descripcion: 'Factura Genérica',
+            paisId,
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -997,12 +1053,12 @@ export class NomencladoresService {
             prefijo: 'F',
             formato: 'F-########'
           },
-          { 
-            id: 'NOTA_CREDITO', 
-            nombre: 'Nota de Crédito', 
-            codigo: 'NC', 
-            descripcion: 'Nota de Crédito', 
-            paisId, 
+          {
+            id: 'nc-default',
+            nombre: 'Nota de Crédito',
+            codigo: 'NC',
+            descripcion: 'Nota de Crédito Genérica',
+            paisId,
             activo: true,
             requiereImpuesto: true,
             requiereCliente: true,
@@ -1015,431 +1071,505 @@ export class NomencladoresService {
     }
   }
 
+  // Datos mock para tipos de impuesto
   static getMockTiposImpuesto(paisId: string): TipoImpuesto[] {
     switch (paisId) {
       case 'peru':
         return [
-          { id: 'igv', nombre: 'IGV', codigo: '1000', porcentaje: 18, tipo: 'IGV', paisId, activo: true },
-          { id: 'igv_exonerado', nombre: 'Exonerado', codigo: '9997', porcentaje: 0, tipo: 'IGV', paisId, activo: true },
-          { id: 'igv_inafecto', nombre: 'Inafecto', codigo: '9998', porcentaje: 0, tipo: 'IGV', paisId, activo: true }
+          {
+            id: 'igv-pe',
+            nombre: 'IGV',
+            codigo: 'IGV',
+            porcentaje: 18,
+            tipo: 'IGV',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'isc-pe',
+            nombre: 'ISC',
+            codigo: 'ISC',
+            porcentaje: 10,
+            tipo: 'OTRO',
+            paisId: 'peru',
+            activo: true
+          }
         ];
       case 'colombia':
         return [
-          { id: 'iva', nombre: 'IVA', codigo: '01', porcentaje: 19, tipo: 'IVA', paisId, activo: true },
-          { id: 'iva_reducido', nombre: 'IVA Reducido', codigo: '02', porcentaje: 5, tipo: 'IVA', paisId, activo: true },
-          { id: 'iva_excluido', nombre: 'Excluido', codigo: '03', porcentaje: 0, tipo: 'IVA', paisId, activo: true }
+          {
+            id: 'iva-co',
+            nombre: 'IVA',
+            codigo: 'IVA',
+            porcentaje: 19,
+            tipo: 'IVA',
+            paisId: 'colombia',
+            activo: true
+          },
+          {
+            id: 'ica-co',
+            nombre: 'ICA',
+            codigo: 'ICA',
+            porcentaje: 0.7,
+            tipo: 'OTRO',
+            paisId: 'colombia',
+            activo: true
+          }
         ];
       case 'mexico':
         return [
-          { id: 'iva', nombre: 'IVA', codigo: '002', porcentaje: 16, tipo: 'IVA', paisId, activo: true },
-          { id: 'iva_frontera', nombre: 'IVA Frontera', codigo: '003', porcentaje: 8, tipo: 'IVA', paisId, activo: true },
-          { id: 'isr', nombre: 'ISR', codigo: '001', porcentaje: 10, tipo: 'ISR', paisId, activo: true }
+          {
+            id: 'iva-mx',
+            nombre: 'IVA',
+            codigo: 'IVA',
+            porcentaje: 16,
+            tipo: 'IVA',
+            paisId: 'mexico',
+            activo: true
+          },
+          {
+            id: 'ieps-mx',
+            nombre: 'IEPS',
+            codigo: 'IEPS',
+            porcentaje: 8,
+            tipo: 'OTRO',
+            paisId: 'mexico',
+            activo: true
+          }
         ];
       default:
         return [
-          { id: 'impuesto', nombre: 'Impuesto Estándar', codigo: '01', porcentaje: 15, tipo: 'IVA', paisId, activo: true },
-          { id: 'exento', nombre: 'Exento', codigo: '02', porcentaje: 0, tipo: 'IVA', paisId, activo: true }
+          {
+            id: 'iva-default',
+            nombre: 'IVA',
+            codigo: 'IVA',
+            porcentaje: 20,
+            tipo: 'IVA',
+            paisId,
+            activo: true
+          }
         ];
     }
   }
 
+  // Datos mock para formas de pago
   static getMockFormasPago(paisId: string): FormaPago[] {
     return [
-      { 
-        id: 'efectivo', 
-        nombre: 'Efectivo', 
-        codigo: '01', 
-        descripcion: 'Pago en efectivo', 
-        paisId, 
+      {
+        id: 'efectivo',
+        nombre: 'Efectivo',
+        codigo: 'EFE',
+        descripcion: 'Pago en efectivo',
+        paisId,
         activo: true,
         requiereBanco: false,
         requiereReferencia: false,
         requiereFecha: false
       },
-      { 
-        id: 'transferencia', 
-        nombre: 'Transferencia Bancaria', 
-        codigo: '02', 
-        descripcion: 'Transferencia entre cuentas bancarias', 
-        paisId, 
+      {
+        id: 'transferencia',
+        nombre: 'Transferencia Bancaria',
+        codigo: 'TRA',
+        descripcion: 'Pago por transferencia bancaria',
+        paisId,
         activo: true,
         requiereBanco: true,
         requiereReferencia: true,
         requiereFecha: true
       },
-      { 
-        id: 'cheque', 
-        nombre: 'Cheque', 
-        codigo: '03', 
-        descripcion: 'Pago con cheque', 
-        paisId, 
+      {
+        id: 'cheque',
+        nombre: 'Cheque',
+        codigo: 'CHE',
+        descripcion: 'Pago con cheque',
+        paisId,
         activo: true,
         requiereBanco: true,
         requiereReferencia: true,
         requiereFecha: true
       },
-      { 
-        id: 'tarjeta', 
-        nombre: 'Tarjeta de Crédito/Débito', 
-        codigo: '04', 
-        descripcion: 'Pago con tarjeta', 
-        paisId, 
+      {
+        id: 'tarjeta',
+        nombre: 'Tarjeta de Crédito/Débito',
+        codigo: 'TAR',
+        descripcion: 'Pago con tarjeta de crédito o débito',
+        paisId,
         activo: true,
-        requiereBanco: false,
+        requiereBanco: true,
         requiereReferencia: true,
         requiereFecha: false
       }
     ];
   }
 
-  // Tipos de movimiento de tesorería
+  // Datos mock para tipos de movimiento de tesorería
   static getMockTiposMovimientoTesoreria(paisId: string): TipoMovimientoTesoreria[] {
-    switch (paisId) {
-      case 'peru':
-        return [
-          {
-            id: 'INGRESO',
-            nombre: 'Ingreso',
-            codigo: 'ING',
-            descripcion: 'Entrada de dinero a la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'EGRESO',
-            nombre: 'Egreso',
-            codigo: 'EGR',
-            descripcion: 'Salida de dinero de la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'TRANSFERENCIA',
-            nombre: 'Transferencia',
-            codigo: 'TRF',
-            descripcion: 'Movimiento entre cuentas propias',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'COMISION',
-            nombre: 'Comisión Bancaria',
-            codigo: 'COM',
-            descripcion: 'Comisiones cobradas por el banco',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          },
-          {
-            id: 'INTERES',
-            nombre: 'Interés',
-            codigo: 'INT',
-            descripcion: 'Intereses generados por la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          }
-        ];
-      case 'colombia':
-        return [
-          {
-            id: 'INGRESO',
-            nombre: 'Ingreso',
-            codigo: 'ING',
-            descripcion: 'Entrada de dinero a la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'EGRESO',
-            nombre: 'Egreso',
-            codigo: 'EGR',
-            descripcion: 'Salida de dinero de la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'TRANSFERENCIA',
-            nombre: 'Transferencia',
-            codigo: 'TRF',
-            descripcion: 'Movimiento entre cuentas propias',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'COMISION',
-            nombre: 'Comisión Bancaria',
-            codigo: 'COM',
-            descripcion: 'Comisiones cobradas por el banco',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          },
-          {
-            id: 'INTERES',
-            nombre: 'Interés',
-            codigo: 'INT',
-            descripcion: 'Intereses generados por la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'GMF',
-            nombre: 'GMF (4x1000)',
-            codigo: 'GMF',
-            descripcion: 'Gravamen a los Movimientos Financieros',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          }
-        ];
-      case 'mexico':
-        return [
-          {
-            id: 'INGRESO',
-            nombre: 'Ingreso',
-            codigo: 'ING',
-            descripcion: 'Entrada de dinero a la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'EGRESO',
-            nombre: 'Egreso',
-            codigo: 'EGR',
-            descripcion: 'Salida de dinero de la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'TRANSFERENCIA',
-            nombre: 'Transferencia',
-            codigo: 'TRF',
-            descripcion: 'Movimiento entre cuentas propias',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'COMISION',
-            nombre: 'Comisión Bancaria',
-            codigo: 'COM',
-            descripcion: 'Comisiones cobradas por el banco',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          },
-          {
-            id: 'INTERES',
-            nombre: 'Interés',
-            codigo: 'INT',
-            descripcion: 'Intereses generados por la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'ISR',
-            nombre: 'Retención ISR',
-            codigo: 'ISR',
-            descripcion: 'Retención de ISR',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          }
-        ];
-      default:
-        return [
-          {
-            id: 'INGRESO',
-            nombre: 'Ingreso',
-            codigo: 'ING',
-            descripcion: 'Entrada de dinero a la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'EGRESO',
-            nombre: 'Egreso',
-            codigo: 'EGR',
-            descripcion: 'Salida de dinero de la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'TRANSFERENCIA',
-            nombre: 'Transferencia',
-            codigo: 'TRF',
-            descripcion: 'Movimiento entre cuentas propias',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          },
-          {
-            id: 'COMISION',
-            nombre: 'Comisión Bancaria',
-            codigo: 'COM',
-            descripcion: 'Comisiones cobradas por el banco',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: true
-          },
-          {
-            id: 'INTERES',
-            nombre: 'Interés',
-            codigo: 'INT',
-            descripcion: 'Intereses generados por la cuenta',
-            paisId,
-            activo: true,
-            afectaSaldo: true,
-            requiereReferencia: false
-          }
-        ];
-    }
+    return [
+      {
+        id: 'ingreso',
+        nombre: 'Ingreso',
+        codigo: 'ING',
+        descripcion: 'Ingreso de dinero',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: false
+      },
+      {
+        id: 'egreso',
+        nombre: 'Egreso',
+        codigo: 'EGR',
+        descripcion: 'Egreso de dinero',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: false
+      },
+      {
+        id: 'transferencia',
+        nombre: 'Transferencia',
+        codigo: 'TRA',
+        descripcion: 'Transferencia entre cuentas',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: false
+      },
+      {
+        id: 'cobro-cliente',
+        nombre: 'Cobro a Cliente',
+        codigo: 'COB',
+        descripcion: 'Cobro de factura a cliente',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        requiereDocumento: true
+      },
+      {
+        id: 'pago-proveedor',
+        nombre: 'Pago a Proveedor',
+        codigo: 'PAG',
+        descripcion: 'Pago de factura a proveedor',
+        paisId,
+        activo: true,
+        afectaSaldo: true,
+        requiereReferencia: true,
+        requiereDocumento: true
+      }
+    ];
   }
 
-  // Tipos de moneda por país
+  // Datos mock para tipos de moneda
   static getMockTiposMoneda(paisId: string): TipoMoneda[] {
     switch (paisId) {
       case 'peru':
         return [
-          { id: 'PEN', nombre: 'Soles', codigo: 'PEN', simbolo: 'S/', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: false }
+          {
+            id: 'pen',
+            nombre: 'Sol Peruano',
+            codigo: 'PEN',
+            simbolo: 'S/',
+            paisId: 'peru',
+            activo: true,
+            esPrincipal: true
+          },
+          {
+            id: 'usd-pe',
+            nombre: 'Dólar Estadounidense',
+            codigo: 'USD',
+            simbolo: '$',
+            paisId: 'peru',
+            activo: true,
+            esPrincipal: false
+          }
         ];
       case 'colombia':
         return [
-          { id: 'COP', nombre: 'Pesos Colombianos', codigo: 'COP', simbolo: '$', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: 'US$', paisId, activo: true, esPrincipal: false }
+          {
+            id: 'cop',
+            nombre: 'Peso Colombiano',
+            codigo: 'COP',
+            simbolo: '$',
+            paisId: 'colombia',
+            activo: true,
+            esPrincipal: true
+          },
+          {
+            id: 'usd-co',
+            nombre: 'Dólar Estadounidense',
+            codigo: 'USD',
+            simbolo: 'US$',
+            paisId: 'colombia',
+            activo: true,
+            esPrincipal: false
+          }
         ];
       case 'mexico':
         return [
-          { id: 'MXN', nombre: 'Pesos Mexicanos', codigo: 'MXN', simbolo: '$', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: 'US$', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'argentina':
-        return [
-          { id: 'ARS', nombre: 'Pesos Argentinos', codigo: 'ARS', simbolo: '$', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: 'US$', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'chile':
-        return [
-          { id: 'CLP', nombre: 'Pesos Chilenos', codigo: 'CLP', simbolo: '$', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: 'US$', paisId, activo: true, esPrincipal: false },
-          { id: 'UF', nombre: 'Unidad de Fomento', codigo: 'CLF', simbolo: 'UF', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'ecuador':
-        return [
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: true }
-        ];
-      case 'bolivia':
-        return [
-          { id: 'BOB', nombre: 'Bolivianos', codigo: 'BOB', simbolo: 'Bs', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'uruguay':
-        return [
-          { id: 'UYU', nombre: 'Pesos Uruguayos', codigo: 'UYU', simbolo: '$U', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: 'US$', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'paraguay':
-        return [
-          { id: 'PYG', nombre: 'Guaraníes', codigo: 'PYG', simbolo: '₲', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: false }
-        ];
-      case 'venezuela':
-        return [
-          { id: 'VES', nombre: 'Bolívares Soberanos', codigo: 'VES', simbolo: 'Bs.S', paisId, activo: true, esPrincipal: true },
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: false }
+          {
+            id: 'mxn',
+            nombre: 'Peso Mexicano',
+            codigo: 'MXN',
+            simbolo: '$',
+            paisId: 'mexico',
+            activo: true,
+            esPrincipal: true
+          },
+          {
+            id: 'usd-mx',
+            nombre: 'Dólar Estadounidense',
+            codigo: 'USD',
+            simbolo: 'US$',
+            paisId: 'mexico',
+            activo: true,
+            esPrincipal: false
+          }
         ];
       default:
         return [
-          { id: 'USD', nombre: 'Dólares Americanos', codigo: 'USD', simbolo: '$', paisId, activo: true, esPrincipal: true },
-          { id: 'EUR', nombre: 'Euros', codigo: 'EUR', simbolo: '€', paisId, activo: true, esPrincipal: false }
+          {
+            id: 'local',
+            nombre: 'Moneda Local',
+            codigo: 'LOC',
+            simbolo: '$',
+            paisId,
+            activo: true,
+            esPrincipal: true
+          },
+          {
+            id: 'usd-default',
+            nombre: 'Dólar Estadounidense',
+            codigo: 'USD',
+            simbolo: 'US$',
+            paisId,
+            activo: true,
+            esPrincipal: false
+          }
         ];
     }
   }
 
-  // Bancos por país
+  // Datos mock para bancos
   static getMockBancos(paisId: string): Banco[] {
     switch (paisId) {
       case 'peru':
         return [
-          { id: 'bcp', nombre: 'Banco de Crédito del Perú', codigo: 'BCP', paisId, activo: true },
-          { id: 'bbva', nombre: 'BBVA', codigo: 'BBVA', paisId, activo: true },
-          { id: 'interbank', nombre: 'Interbank', codigo: 'IBK', paisId, activo: true },
-          { id: 'scotiabank', nombre: 'Scotiabank', codigo: 'SBP', paisId, activo: true },
-          { id: 'banbif', nombre: 'BanBif', codigo: 'BIF', paisId, activo: true }
+          {
+            id: 'bcp',
+            nombre: 'Banco de Crédito del Perú',
+            codigo: 'BCP',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'bbva',
+            nombre: 'BBVA',
+            codigo: 'BBVA',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'interbank',
+            nombre: 'Interbank',
+            codigo: 'IBK',
+            paisId: 'peru',
+            activo: true
+          },
+          {
+            id: 'scotiabank',
+            nombre: 'Scotiabank',
+            codigo: 'SBP',
+            paisId: 'peru',
+            activo: true
+          }
         ];
       case 'colombia':
         return [
-          { id: 'bancolombia', nombre: 'Bancolombia', codigo: 'BCL', paisId, activo: true },
-          { id: 'davivienda', nombre: 'Davivienda', codigo: 'DAV', paisId, activo: true },
-          { id: 'bbva', nombre: 'BBVA Colombia', codigo: 'BBVA', paisId, activo: true },
-          { id: 'bogota', nombre: 'Banco de Bogotá', codigo: 'BOG', paisId, activo: true },
-          { id: 'occidente', nombre: 'Banco de Occidente', codigo: 'OCC', paisId, activo: true }
+          {
+            id: 'bancolombia',
+            nombre: 'Bancolombia',
+            codigo: 'BCO',
+            paisId: 'colombia',
+            activo: true
+          },
+          {
+            id: 'davivienda',
+            nombre: 'Davivienda',
+            codigo: 'DAV',
+            paisId: 'colombia',
+            activo: true
+          },
+          {
+            id: 'bbva-co',
+            nombre: 'BBVA Colombia',
+            codigo: 'BBVA',
+            paisId: 'colombia',
+            activo: true
+          }
         ];
       case 'mexico':
         return [
-          { id: 'bbva', nombre: 'BBVA México', codigo: 'BBVA', paisId, activo: true },
-          { id: 'banamex', nombre: 'Citibanamex', codigo: 'BANA', paisId, activo: true },
-          { id: 'santander', nombre: 'Santander', codigo: 'SAN', paisId, activo: true },
-          { id: 'banorte', nombre: 'Banorte', codigo: 'BNT', paisId, activo: true },
-          { id: 'hsbc', nombre: 'HSBC México', codigo: 'HSBC', paisId, activo: true }
-        ];
-      case 'argentina':
-        return [
-          { id: 'nacion', nombre: 'Banco de la Nación Argentina', codigo: 'BNA', paisId, activo: true },
-          { id: 'provincia', nombre: 'Banco Provincia', codigo: 'BAPRO', paisId, activo: true },
-          { id: 'galicia', nombre: 'Banco Galicia', codigo: 'GAL', paisId, activo: true },
-          { id: 'santander', nombre: 'Santander Argentina', codigo: 'SAN', paisId, activo: true },
-          { id: 'bbva', nombre: 'BBVA Argentina', codigo: 'BBVA', paisId, activo: true }
-        ];
-      case 'chile':
-        return [
-          { id: 'santander', nombre: 'Santander Chile', codigo: 'SAN', paisId, activo: true },
-          { id: 'estado', nombre: 'Banco Estado', codigo: 'EST', paisId, activo: true },
-          { id: 'chile', nombre: 'Banco de Chile', codigo: 'BCH', paisId, activo: true },
-          { id: 'bci', nombre: 'BCI', codigo: 'BCI', paisId, activo: true },
-          { id: 'scotiabank', nombre: 'Scotiabank Chile', codigo: 'SCO', paisId, activo: true }
+          {
+            id: 'banamex',
+            nombre: 'Citibanamex',
+            codigo: 'BANA',
+            paisId: 'mexico',
+            activo: true
+          },
+          {
+            id: 'bbva-mx',
+            nombre: 'BBVA México',
+            codigo: 'BBVA',
+            paisId: 'mexico',
+            activo: true
+          },
+          {
+            id: 'banorte',
+            nombre: 'Banorte',
+            codigo: 'BNT',
+            paisId: 'mexico',
+            activo: true
+          }
         ];
       default:
         return [
-          { id: 'banco1', nombre: 'Banco Principal', codigo: 'BP', paisId, activo: true },
-          { id: 'banco2', nombre: 'Banco Secundario', codigo: 'BS', paisId, activo: true },
-          { id: 'banco3', nombre: 'Banco Internacional', codigo: 'BI', paisId, activo: true }
+          {
+            id: 'banco1',
+            nombre: 'Banco Principal',
+            codigo: 'BP',
+            paisId,
+            activo: true
+          },
+          {
+            id: 'banco2',
+            nombre: 'Banco Secundario',
+            codigo: 'BS',
+            paisId,
+            activo: true
+          }
         ];
+    }
+  }
+
+  // Inicializar nomencladores para un país
+  static async inicializarNomencladores(paisId: string): Promise<void> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        throw new Error('No se pudo autenticar con Firebase');
+      }
+
+      console.log(`🔄 Inicializando nomencladores para país: ${paisId}`);
+      
+      // Verificar si ya existen nomencladores
+      const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
+      const q = query(tiposDocRef, where('paisId', '==', paisId), limit(1));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        console.log(`⚠️ Ya existen nomencladores para el país ${paisId}`);
+        return;
+      }
+      
+      // Obtener datos mock
+      const tiposDocIdentidad = this.getMockTiposDocumentoIdentidad(paisId);
+      const tiposDocFactura = this.getMockTiposDocumentoFactura(paisId);
+      const tiposImpuesto = this.getMockTiposImpuesto(paisId);
+      const formasPago = this.getMockFormasPago(paisId);
+      const tiposMovimiento = this.getMockTiposMovimientoTesoreria(paisId);
+      const tiposMoneda = this.getMockTiposMoneda(paisId);
+      const bancos = this.getMockBancos(paisId);
+      
+      // Insertar datos
+      for (const tipo of tiposDocIdentidad) {
+        await this.crearTipoDocumentoIdentidad({
+          nombre: tipo.nombre,
+          codigo: tipo.codigo,
+          descripcion: tipo.descripcion,
+          paisId: tipo.paisId,
+          activo: tipo.activo
+        });
+      }
+      
+      for (const tipo of tiposDocFactura) {
+        await this.crearTipoDocumentoFactura({
+          nombre: tipo.nombre,
+          codigo: tipo.codigo,
+          descripcion: tipo.descripcion,
+          paisId: tipo.paisId,
+          activo: tipo.activo,
+          requiereImpuesto: tipo.requiereImpuesto,
+          requiereCliente: tipo.requiereCliente,
+          afectaInventario: tipo.afectaInventario,
+          afectaContabilidad: tipo.afectaContabilidad,
+          prefijo: tipo.prefijo,
+          formato: tipo.formato
+        });
+      }
+      
+      for (const tipo of tiposImpuesto) {
+        await this.crearTipoImpuesto({
+          nombre: tipo.nombre,
+          codigo: tipo.codigo,
+          porcentaje: tipo.porcentaje,
+          tipo: tipo.tipo,
+          paisId: tipo.paisId,
+          activo: tipo.activo
+        });
+      }
+      
+      for (const forma of formasPago) {
+        await this.crearFormaPago({
+          nombre: forma.nombre,
+          codigo: forma.codigo,
+          descripcion: forma.descripcion,
+          paisId: forma.paisId,
+          activo: forma.activo,
+          requiereBanco: forma.requiereBanco,
+          requiereReferencia: forma.requiereReferencia,
+          requiereFecha: forma.requiereFecha
+        });
+      }
+      
+      for (const tipo of tiposMovimiento) {
+        await this.crearTipoMovimientoTesoreria({
+          nombre: tipo.nombre,
+          codigo: tipo.codigo,
+          descripcion: tipo.descripcion,
+          paisId: tipo.paisId,
+          activo: tipo.activo,
+          afectaSaldo: tipo.afectaSaldo,
+          requiereReferencia: tipo.requiereReferencia,
+          requiereDocumento: tipo.requiereDocumento
+        });
+      }
+      
+      for (const tipo of tiposMoneda) {
+        await this.crearTipoMoneda({
+          nombre: tipo.nombre,
+          codigo: tipo.codigo,
+          simbolo: tipo.simbolo,
+          paisId: tipo.paisId,
+          activo: tipo.activo,
+          esPrincipal: tipo.esPrincipal
+        });
+      }
+      
+      for (const banco of bancos) {
+        await this.crearBanco({
+          nombre: banco.nombre,
+          codigo: banco.codigo,
+          paisId: banco.paisId,
+          activo: banco.activo
+        });
+      }
+      
+      console.log(`✅ Nomencladores inicializados correctamente para país ${paisId}`);
+    } catch (error) {
+      console.error('❌ Error inicializando nomencladores:', error);
+      throw error;
     }
   }
 }
