@@ -142,6 +142,13 @@ function GestionNomencladores() {
     }
   }, [paisActual?.id]);
 
+  // Efecto para recargar datos cuando cambia el país seleccionado
+  useEffect(() => {
+    if (selectedPais) {
+      recargarDatos();
+    }
+  }, [selectedPais, recargarDatos]);
+
   // Función para inicializar todos los países y nomencladores
   const handleInitializeAll = async () => {
     setIsInitializing(true);
@@ -244,34 +251,6 @@ function GestionNomencladores() {
     const matchesPais = !selectedPais || item.paisId === selectedPais;
     return matchesSearch && matchesTipo && matchesPais;
   });
-
-  // Obtener ícono según tipo de nomenclador
-  const getNomencladorIcon = (tipo: string) => {
-    switch (tipo) {
-      case 'tiposDocumentoIdentidad': return <FileText className="h-4 w-4 text-blue-600" />;
-      case 'tiposDocumentoFactura': return <FileText className="h-4 w-4 text-purple-600" />;
-      case 'tiposImpuesto': return <Percent className="h-4 w-4 text-orange-600" />;
-      case 'formasPago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
-      case 'tiposMovimientoTesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
-      case 'tiposMoneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
-      case 'bancos': return <BankIcon className="h-4 w-4 text-cyan-600" />;
-      default: return <Database className="h-4 w-4 text-gray-600" />;
-    }
-  };
-
-  // Obtener nombre legible del tipo de nomenclador
-  const getNomencladorTypeName = (tipo: string) => {
-    switch (tipo) {
-      case 'tiposDocumentoIdentidad': return 'Tipo de Documento de Identidad';
-      case 'tiposDocumentoFactura': return 'Tipo de Documento de Factura';
-      case 'tiposImpuesto': return 'Tipo de Impuesto';
-      case 'formasPago': return 'Forma de Pago';
-      case 'tiposMovimientoTesoreria': return 'Tipo de Movimiento de Tesorería';
-      case 'tiposMoneda': return 'Tipo de Moneda';
-      case 'bancos': return 'Banco';
-      default: return 'Nomenclador';
-    }
-  };
 
   // Agrupar nomencladores por tipo
   const groupedNomencladores = filteredNomencladores.reduce((groups, item) => {
@@ -488,6 +467,34 @@ function GestionNomencladores() {
       case 'tiposMoneda': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'bancos': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  // Obtener ícono según tipo de nomenclador
+  const getNomencladorIcon = (tipo: string) => {
+    switch (tipo) {
+      case 'tiposDocumentoIdentidad': return <FileText className="h-4 w-4 text-blue-600" />;
+      case 'tiposDocumentoFactura': return <FileText className="h-4 w-4 text-purple-600" />;
+      case 'tiposImpuesto': return <Percent className="h-4 w-4 text-orange-600" />;
+      case 'formasPago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
+      case 'tiposMovimientoTesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
+      case 'tiposMoneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
+      case 'bancos': return <BankIcon className="h-4 w-4 text-cyan-600" />;
+      default: return <Database className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  // Obtener nombre legible del tipo de nomenclador
+  const getNomencladorTypeName = (tipo: string) => {
+    switch (tipo) {
+      case 'tiposDocumentoIdentidad': return 'Tipo de Documento de Identidad';
+      case 'tiposDocumentoFactura': return 'Tipo de Documento de Factura';
+      case 'tiposImpuesto': return 'Tipo de Impuesto';
+      case 'formasPago': return 'Forma de Pago';
+      case 'tiposMovimientoTesoreria': return 'Tipo de Movimiento de Tesorería';
+      case 'tiposMoneda': return 'Tipo de Moneda';
+      case 'bancos': return 'Banco';
+      default: return 'Nomenclador';
     }
   };
 

@@ -46,7 +46,7 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
               className={`hover:bg-gray-50 cursor-pointer ${paisSeleccionado === pais.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : ''}`}
               onClick={() => onSelectPais(pais.id)}
             >
-              <td className="px-4 py-3 whitespace-nowrap">
+              <td className="px-4 py-4 whitespace-nowrap">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center">
                     <Globe className="h-4 w-4 text-indigo-600" />
@@ -57,28 +57,28 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
                   </div>
                 </div>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
+              <td className="px-4 py-4 whitespace-nowrap text-center">
                 {pais.tieneDocumentoIdentidad ? (
                   <Check className="h-5 w-5 text-green-600 mx-auto" />
                 ) : (
                   <X className="h-5 w-5 text-red-600 mx-auto" />
                 )}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
+              <td className="px-4 py-4 whitespace-nowrap text-center">
                 {pais.tieneDocumentoFactura ? (
                   <Check className="h-5 w-5 text-green-600 mx-auto" />
                 ) : (
                   <X className="h-5 w-5 text-red-600 mx-auto" />
                 )}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
+              <td className="px-4 py-4 whitespace-nowrap text-center">
                 {pais.tieneImpuestos ? (
                   <Check className="h-5 w-5 text-green-600 mx-auto" />
                 ) : (
                   <X className="h-5 w-5 text-red-600 mx-auto" />
                 )}
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-center">
+              <td className="px-4 py-4 whitespace-nowrap text-center">
                 {pais.tieneFormasPago ? (
                   <Check className="h-5 w-5 text-green-600 mx-auto" />
                 ) : (
@@ -86,7 +86,7 @@ export const PaisesNomencladores: React.FC<PaisesNomencladoresProps> = ({
                 )}
               </td>
               {(onEditPais || onDeletePais) && (
-                <td className="px-4 py-3 whitespace-nowrap text-center">
+                <td className="px-4 py-4 whitespace-nowrap text-center">
                   <div className="flex items-center justify-center space-x-2">
                     {onEditPais && (
                       <button
