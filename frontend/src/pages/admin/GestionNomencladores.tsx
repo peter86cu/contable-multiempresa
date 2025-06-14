@@ -35,6 +35,7 @@ import { PaisesNomencladores } from '../../components/admin/PaisesNomencladores'
 import { NomencladorModal } from '../../components/admin/NomencladorModal';
 import { SeedDataNomencladoresService } from '../../services/firebase/seedDataNomencladores';
 import { PaisesService } from '../../services/paises/paisesService';
+import { NomencladoresService } from '../../services/firebase/nomencladores';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -317,8 +318,21 @@ function GestionNomencladores() {
       `${getNomencladorTypeName(tipo)} "${nomenclador.nombre}"`,
       async () => {
         try {
-          // Aquí iría la lógica para eliminar el nomenclador
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Implementar la eliminación del nomenclador según su tipo
+          switch (tipo) {
+            case 'tiposMoneda':
+              await NomencladoresService.eliminarTipoMoneda(nomenclador.id);
+              break;
+            case 'bancos':
+              await NomencladoresService.eliminarBanco(nomenclador.id);
+              break;
+            case 'tiposMovimientoTesoreria':
+              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
+              break;
+            // Implementar otros casos según sea necesario
+            default:
+              throw new Error(`No se ha implementado la eliminación para el tipo ${tipo}`);
+          }
           
           showSuccess(
             'Nomenclador eliminado',
@@ -340,8 +354,40 @@ function GestionNomencladores() {
   // Guardar nomenclador
   const handleSaveNomenclador = async (data: any) => {
     try {
-      // Aquí iría la lógica para guardar el nomenclador
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Implementar la creación o actualización del nomenclador según su tipo
+      if (selectedNomenclador) {
+        // Actualizar nomenclador existente
+        switch (nomencladorTipo) {
+          case 'tiposMoneda':
+            await NomencladoresService.actualizarTipoMoneda(selectedNomenclador.id, data);
+            break;
+          case 'bancos':
+            await NomencladoresService.actualizarBanco(selectedNomenclador.id, data);
+            break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
+            break;
+          // Implementar otros casos según sea necesario
+          default:
+            throw new Error(`No se ha implementado la actualización para el tipo ${nomencladorTipo}`);
+        }
+      } else {
+        // Crear nuevo nomenclador
+        switch (nomencladorTipo) {
+          case 'tiposMoneda':
+            await NomencladoresService.crearTipoMoneda(data);
+            break;
+          case 'bancos':
+            await NomencladoresService.crearBanco(data);
+            break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.crearTipoMovimientoTesoreria(data);
+            break;
+          // Implementar otros casos según sea necesario
+          default:
+            throw new Error(`No se ha implementado la creación para el tipo ${nomencladorTipo}`);
+        }
+      }
       
       showSuccess(
         'Nomenclador guardado',
