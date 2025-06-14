@@ -109,7 +109,6 @@ function GestionNomencladores() {
           id: pais.id,
           nombre: pais.nombre,
           codigo: pais.codigo,
-          totalNomencladores: 0, // Se actualizará después
           tieneDocumentoIdentidad: false,
           tieneDocumentoFactura: false,
           tieneImpuestos: false,
@@ -357,16 +356,27 @@ function GestionNomencladores() {
         try {
           // Implementar la eliminación del nomenclador según su tipo
           switch (tipo) {
+            case 'tiposDocumentoIdentidad':
+              await NomencladoresService.eliminarTipoDocumentoIdentidad(nomenclador.id);
+              break;
+            case 'tiposDocumentoFactura':
+              await NomencladoresService.eliminarTipoDocumentoFactura(nomenclador.id);
+              break;
+            case 'tiposImpuesto':
+              await NomencladoresService.eliminarTipoImpuesto(nomenclador.id);
+              break;
+            case 'formasPago':
+              await NomencladoresService.eliminarFormaPago(nomenclador.id);
+              break;
+            case 'tiposMovimientoTesoreria':
+              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
+              break;
             case 'tiposMoneda':
               await NomencladoresService.eliminarTipoMoneda(nomenclador.id);
               break;
             case 'bancos':
               await NomencladoresService.eliminarBanco(nomenclador.id);
               break;
-            case 'tiposMovimientoTesoreria':
-              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
-              break;
-            // Implementar otros casos según sea necesario
             default:
               throw new Error(`No se ha implementado la eliminación para el tipo ${tipo}`);
           }
@@ -395,32 +405,54 @@ function GestionNomencladores() {
       if (selectedNomenclador) {
         // Actualizar nomenclador existente
         switch (nomencladorTipo) {
+          case 'tiposDocumentoIdentidad':
+            await NomencladoresService.actualizarTipoDocumentoIdentidad(selectedNomenclador.id, data);
+            break;
+          case 'tiposDocumentoFactura':
+            await NomencladoresService.actualizarTipoDocumentoFactura(selectedNomenclador.id, data);
+            break;
+          case 'tiposImpuesto':
+            await NomencladoresService.actualizarTipoImpuesto(selectedNomenclador.id, data);
+            break;
+          case 'formasPago':
+            await NomencladoresService.actualizarFormaPago(selectedNomenclador.id, data);
+            break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
+            break;
           case 'tiposMoneda':
             await NomencladoresService.actualizarTipoMoneda(selectedNomenclador.id, data);
             break;
           case 'bancos':
             await NomencladoresService.actualizarBanco(selectedNomenclador.id, data);
             break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
-            break;
-          // Implementar otros casos según sea necesario
           default:
             throw new Error(`No se ha implementado la actualización para el tipo ${nomencladorTipo}`);
         }
       } else {
         // Crear nuevo nomenclador
         switch (nomencladorTipo) {
+          case 'tiposDocumentoIdentidad':
+            await NomencladoresService.crearTipoDocumentoIdentidad(data);
+            break;
+          case 'tiposDocumentoFactura':
+            await NomencladoresService.crearTipoDocumentoFactura(data);
+            break;
+          case 'tiposImpuesto':
+            await NomencladoresService.crearTipoImpuesto(data);
+            break;
+          case 'formasPago':
+            await NomencladoresService.crearFormaPago(data);
+            break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.crearTipoMovimientoTesoreria(data);
+            break;
           case 'tiposMoneda':
             await NomencladoresService.crearTipoMoneda(data);
             break;
           case 'bancos':
             await NomencladoresService.crearBanco(data);
             break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.crearTipoMovimientoTesoreria(data);
-            break;
-          // Implementar otros casos según sea necesario
           default:
             throw new Error(`No se ha implementado la creación para el tipo ${nomencladorTipo}`);
         }
