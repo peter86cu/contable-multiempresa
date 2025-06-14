@@ -28,6 +28,7 @@ export const NomencladorModal: React.FC<NomencladorModalProps> = ({
   
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   useEffect(() => {
     if (nomenclador) {
@@ -81,11 +82,17 @@ export const NomencladorModal: React.FC<NomencladorModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(false);
     
     try {
       setSaving(true);
       await onSave(formData);
-      onClose();
+      setSuccess(true);
+      
+      // Cerrar modal después de un breve retraso para mostrar el éxito
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar');
     } finally {
@@ -451,6 +458,11 @@ export const NomencladorModal: React.FC<NomencladorModalProps> = ({
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span>Guardando...</span>
+                </>
+              ) : success ? (
+                <>
+                  <CheckCircle className="h-4 w-4" />
+                  <span>¡Guardado!</span>
                 </>
               ) : (
                 <>
