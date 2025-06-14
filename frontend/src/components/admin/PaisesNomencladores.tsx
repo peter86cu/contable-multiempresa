@@ -6,7 +6,6 @@ interface PaisesNomencladoresProps {
     id: string;
     nombre: string;
     codigo: string;
-    totalNomencladores: number;
     tieneDocumentoIdentidad: boolean;
     tieneDocumentoFactura: boolean;
     tieneImpuestos: boolean;

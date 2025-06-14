@@ -221,14 +221,17 @@ function GestionNomencladores() {
 
   // Obtener todos los nomencladores en un solo array
   const getAllNomencladores = () => {
+    // Filtrar por país seleccionado
+    if (!selectedPais) return [];
+    
     return [
-      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
-      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
-      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tiposImpuesto' })),
-      ...formasPago.map(item => ({ ...item, tipo: 'formasPago' })),
-      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
-      ...tiposMoneda.map(item => ({ ...item, tipo: 'tiposMoneda' })),
-      ...bancos.map(item => ({ ...item, tipo: 'bancos' }))
+      ...tiposDocumentoIdentidad.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
+      ...tiposDocumentoFactura.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
+      ...tiposImpuesto.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposImpuesto' })),
+      ...formasPago.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'formasPago' })),
+      ...tiposMovimientoTesoreria.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
+      ...tiposMoneda.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposMoneda' })),
+      ...bancos.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'bancos' }))
     ];
   };
 
@@ -674,7 +677,7 @@ function GestionNomencladores() {
               <div className="p-4 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">
-                    Nomencladores {selectedPais ? `de ${paisActual?.nombre || selectedPais}` : ''}
+                    Nomencladores {selectedPais ? `de ${paises.find(p => p.id === selectedPais)?.nombre || selectedPais}` : ''}
                   </h3>
                   
                   <div className="flex flex-col sm:flex-row gap-2">
