@@ -14,7 +14,7 @@ import {
   Ban as BankIcon, 
   Wallet,
   Loader2,
-  AlertTriangle,
+  AlertCircle,
   Settings,
   Link,
   Save,
@@ -36,6 +36,7 @@ import { NomencladorModal } from '../../components/admin/NomencladorModal';
 import { SeedDataNomencladoresService } from '../../services/firebase/seedDataNomencladores';
 import { PaisesService } from '../../services/paises/paisesService';
 import { NomencladoresService } from '../../services/firebase/nomencladores';
+import { FirebaseAuthService } from '../../config/firebaseAuth';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -62,6 +63,7 @@ function GestionNomencladores() {
   const [selectedPais, setSelectedPais] = useState<string | null>(paisActual?.id || null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isInitializingPais, setIsInitializingPais] = useState(false);
   
   // Estados para modal de nuevo país
   const [showPaisModal, setShowPaisModal] = useState(false);
@@ -107,11 +109,11 @@ function GestionNomencladores() {
           id: pais.id,
           nombre: pais.nombre,
           codigo: pais.codigo,
-          totalNomencladores: 0,
-          tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
-          tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
-          tieneImpuestos: pais.tieneImpuestos || false,
-          tieneFormasPago: pais.tieneFormasPago || false
+          totalNomencladores: 0, // Se actualizará después
+          tieneDocumentoIdentidad: false,
+          tieneDocumentoFactura: false,
+          tieneImpuestos: false,
+          tieneFormasPago: false
         }));
         
         setPaises(paisesFormateados);
@@ -161,21 +163,6 @@ function GestionNomencladores() {
       // Recargar datos
       await recargarDatos();
       
-      // Recargar países para actualizar su estado
-      const paisesActualizados = await PaisesService.getPaisesActivos();
-      const paisesFormateados = paisesActualizados.map(pais => ({
-        id: pais.id,
-        nombre: pais.nombre,
-        codigo: pais.codigo,
-        totalNomencladores: 0,
-        tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
-        tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
-        tieneImpuestos: pais.tieneImpuestos || false,
-        tieneFormasPago: pais.tieneFormasPago || false
-      }));
-      
-      setPaises(paisesFormateados);
-      
     } catch (error) {
       console.error('Error inicializando datos:', error);
       showError(
@@ -187,27 +174,45 @@ function GestionNomencladores() {
     }
   };
 
+  // Función para inicializar nomencladores para un país específico
+  const handleInitializePaisNomencladores = async () => {
+    if (!selectedPais) {
+      showError('Error', 'No hay país seleccionado');
+      return;
+    }
+    
+    setIsInitializingPais(true);
+    try {
+      // Asegurar autenticación
+      await FirebaseAuthService.ensureAuthenticated();
+      
+      // Insertar nomencladores para el país seleccionado
+      await SeedDataNomencladoresService.insertarNomencladores(selectedPais);
+      
+      showSuccess(
+        'Inicialización completada',
+        `Se han inicializado los nomencladores para ${selectedPais} correctamente.`
+      );
+      
+      // Recargar datos
+      await recargarDatos();
+      
+    } catch (error) {
+      console.error('Error inicializando nomencladores para país:', error);
+      showError(
+        'Error en inicialización',
+        'No se pudieron inicializar los nomencladores para este país. Por favor, intente nuevamente.'
+      );
+    } finally {
+      setIsInitializingPais(false);
+    }
+  };
+
   // Función para actualizar datos sin recargar la página completa
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await recargarDatos();
-      
-      // Recargar países para actualizar su estado
-      const paisesActualizados = await PaisesService.getPaisesActivos();
-      const paisesFormateados = paisesActualizados.map(pais => ({
-        id: pais.id,
-        nombre: pais.nombre,
-        codigo: pais.codigo,
-        totalNomencladores: 0,
-        tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
-        tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
-        tieneImpuestos: pais.tieneImpuestos || false,
-        tieneFormasPago: pais.tieneFormasPago || false
-      }));
-      
-      setPaises(paisesFormateados);
-      
       showSuccess('Datos actualizados', 'Los nomencladores se han actualizado correctamente');
     } catch (error) {
       showError(
@@ -221,17 +226,14 @@ function GestionNomencladores() {
 
   // Obtener todos los nomencladores en un solo array
   const getAllNomencladores = () => {
-    // Filtrar por país seleccionado
-    if (!selectedPais) return [];
-    
     return [
-      ...tiposDocumentoIdentidad.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
-      ...tiposDocumentoFactura.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
-      ...tiposImpuesto.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposImpuesto' })),
-      ...formasPago.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'formasPago' })),
-      ...tiposMovimientoTesoreria.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
-      ...tiposMoneda.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'tiposMoneda' })),
-      ...bancos.filter(item => item.paisId === selectedPais).map(item => ({ ...item, tipo: 'bancos' }))
+      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
+      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
+      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tiposImpuesto' })),
+      ...formasPago.map(item => ({ ...item, tipo: 'formasPago' })),
+      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
+      ...tiposMoneda.map(item => ({ ...item, tipo: 'tiposMoneda' })),
+      ...bancos.map(item => ({ ...item, tipo: 'bancos' }))
     ];
   };
 
@@ -240,7 +242,8 @@ function GestionNomencladores() {
     const matchesSearch = item.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.codigo.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesTipo = !selectedTipo || item.tipo === selectedTipo;
-    return matchesSearch && matchesTipo;
+    const matchesPais = !selectedPais || item.paisId === selectedPais;
+    return matchesSearch && matchesTipo && matchesPais;
   });
 
   // Obtener ícono según tipo de nomenclador
@@ -316,21 +319,6 @@ function GestionNomencladores() {
         
         // Recargar datos
         await recargarDatos();
-        
-        // Recargar países para actualizar la lista
-        const paisesActualizados = await PaisesService.getPaisesActivos();
-        const paisesFormateados = paisesActualizados.map(pais => ({
-          id: pais.id,
-          nombre: pais.nombre,
-          codigo: pais.codigo,
-          totalNomencladores: 0,
-          tieneDocumentoIdentidad: pais.tieneDocumentoIdentidad || false,
-          tieneDocumentoFactura: pais.tieneDocumentoFactura || false,
-          tieneImpuestos: pais.tieneImpuestos || false,
-          tieneFormasPago: pais.tieneFormasPago || false
-        }));
-        
-        setPaises(paisesFormateados);
       } else {
         showError(
           'Error al crear país',
@@ -369,27 +357,16 @@ function GestionNomencladores() {
         try {
           // Implementar la eliminación del nomenclador según su tipo
           switch (tipo) {
-            case 'tiposDocumentoIdentidad':
-              await NomencladoresService.eliminarTipoDocumentoIdentidad(nomenclador.id);
-              break;
-            case 'tiposDocumentoFactura':
-              await NomencladoresService.eliminarTipoDocumentoFactura(nomenclador.id);
-              break;
-            case 'tiposImpuesto':
-              await NomencladoresService.eliminarTipoImpuesto(nomenclador.id);
-              break;
-            case 'formasPago':
-              await NomencladoresService.eliminarFormaPago(nomenclador.id);
-              break;
-            case 'tiposMovimientoTesoreria':
-              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
-              break;
             case 'tiposMoneda':
               await NomencladoresService.eliminarTipoMoneda(nomenclador.id);
               break;
             case 'bancos':
               await NomencladoresService.eliminarBanco(nomenclador.id);
               break;
+            case 'tiposMovimientoTesoreria':
+              await NomencladoresService.eliminarTipoMovimientoTesoreria(nomenclador.id);
+              break;
+            // Implementar otros casos según sea necesario
             default:
               throw new Error(`No se ha implementado la eliminación para el tipo ${tipo}`);
           }
@@ -418,81 +395,35 @@ function GestionNomencladores() {
       if (selectedNomenclador) {
         // Actualizar nomenclador existente
         switch (nomencladorTipo) {
-          case 'tiposDocumentoIdentidad':
-            await NomencladoresService.actualizarTipoDocumentoIdentidad(selectedNomenclador.id, data);
-            break;
-          case 'tiposDocumentoFactura':
-            await NomencladoresService.actualizarTipoDocumentoFactura(selectedNomenclador.id, data);
-            break;
-          case 'tiposImpuesto':
-            await NomencladoresService.actualizarTipoImpuesto(selectedNomenclador.id, data);
-            break;
-          case 'formasPago':
-            await NomencladoresService.actualizarFormaPago(selectedNomenclador.id, data);
-            break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
-            break;
           case 'tiposMoneda':
             await NomencladoresService.actualizarTipoMoneda(selectedNomenclador.id, data);
             break;
           case 'bancos':
             await NomencladoresService.actualizarBanco(selectedNomenclador.id, data);
             break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.actualizarTipoMovimientoTesoreria(selectedNomenclador.id, data);
+            break;
+          // Implementar otros casos según sea necesario
           default:
             throw new Error(`No se ha implementado la actualización para el tipo ${nomencladorTipo}`);
         }
       } else {
         // Crear nuevo nomenclador
         switch (nomencladorTipo) {
-          case 'tiposDocumentoIdentidad':
-            await NomencladoresService.crearTipoDocumentoIdentidad(data);
-            break;
-          case 'tiposDocumentoFactura':
-            await NomencladoresService.crearTipoDocumentoFactura(data);
-            break;
-          case 'tiposImpuesto':
-            await NomencladoresService.crearTipoImpuesto(data);
-            break;
-          case 'formasPago':
-            await NomencladoresService.crearFormaPago(data);
-            break;
-          case 'tiposMovimientoTesoreria':
-            await NomencladoresService.crearTipoMovimientoTesoreria(data);
-            break;
           case 'tiposMoneda':
             await NomencladoresService.crearTipoMoneda(data);
             break;
           case 'bancos':
             await NomencladoresService.crearBanco(data);
             break;
+          case 'tiposMovimientoTesoreria':
+            await NomencladoresService.crearTipoMovimientoTesoreria(data);
+            break;
+          // Implementar otros casos según sea necesario
           default:
             throw new Error(`No se ha implementado la creación para el tipo ${nomencladorTipo}`);
         }
-      }
-      
-      // Actualizar la lista de países para marcar que el país tiene configurados los nomencladores
-      const paisesActualizados = [...paises];
-      const paisIndex = paisesActualizados.findIndex(p => p.id === selectedPais);
-      
-      if (paisIndex >= 0) {
-        // Actualizar el estado de configuración del país según el tipo de nomenclador
-        switch (nomencladorTipo) {
-          case 'tiposDocumentoIdentidad':
-            paisesActualizados[paisIndex].tieneDocumentoIdentidad = true;
-            break;
-          case 'tiposDocumentoFactura':
-            paisesActualizados[paisIndex].tieneDocumentoFactura = true;
-            break;
-          case 'tiposImpuesto':
-            paisesActualizados[paisIndex].tieneImpuestos = true;
-            break;
-          case 'formasPago':
-            paisesActualizados[paisIndex].tieneFormasPago = true;
-            break;
-        }
-        
-        setPaises(paisesActualizados);
       }
       
       showSuccess(
@@ -503,6 +434,8 @@ function GestionNomencladores() {
       // Recargar datos
       await recargarDatos();
       
+      // Cerrar modal
+      setShowNomencladorModal(false);
     } catch (error) {
       showError(
         'Error al guardar nomenclador',
@@ -543,7 +476,7 @@ function GestionNomencladores() {
       return (
         <div className="flex items-center justify-center h-64">
           <div className="text-center max-w-md">
-            <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+            <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar datos</h3>
             <p className="text-gray-600 mb-4">{error}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -677,7 +610,7 @@ function GestionNomencladores() {
               <div className="p-4 border-b border-gray-200">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">
-                    Nomencladores {selectedPais ? `de ${paises.find(p => p.id === selectedPais)?.nombre || selectedPais}` : ''}
+                    Nomencladores {selectedPais ? `de ${paisActual?.nombre || selectedPais}` : ''}
                   </h3>
                   
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -735,11 +668,21 @@ function GestionNomencladores() {
                     
                     {!searchTerm && !selectedTipo && (
                       <button
-                        onClick={() => SeedDataNomencladoresService.insertarNomencladores(selectedPais)}
+                        onClick={handleInitializePaisNomencladores}
+                        disabled={isInitializingPais}
                         className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex items-center justify-center gap-2 mx-auto"
                       >
-                        <Database className="h-4 w-4" />
-                        <span>Inicializar Nomencladores</span>
+                        {isInitializingPais ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span>Inicializando...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Database className="h-4 w-4" />
+                            <span>Inicializar Nomencladores</span>
+                          </>
+                        )}
                       </button>
                     )}
                   </div>

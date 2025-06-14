@@ -1,4 +1,4 @@
-import { collection, addDoc, getDocs, writeBatch, doc, query, where, Timestamp, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, writeBatch, doc, query, where, Timestamp, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebase';
 import { FirebaseAuthService } from '../../config/firebaseAuth';
 import { 
@@ -148,41 +148,10 @@ export class SeedDataNomencladoresService {
       // Ejecutar batch
       await batch.commit();
       
-      // Actualizar el estado del país para marcar que tiene nomencladores
-      await this.actualizarEstadoPais(paisId);
-      
       console.log(`✅ Nomencladores insertados exitosamente para país ${paisId}`);
     } catch (error) {
       console.error('❌ Error insertando nomencladores:', error);
       throw error;
-    }
-  }
-
-  // Actualizar el estado del país para marcar que tiene nomencladores
-  static async actualizarEstadoPais(paisId: string): Promise<void> {
-    try {
-      console.log(`🔄 Actualizando estado del país ${paisId}`);
-      
-      const paisRef = doc(db, 'paises', paisId);
-      const paisDoc = await getDoc(paisRef);
-      
-      if (paisDoc.exists()) {
-        await updateDoc(paisRef, {
-          tieneNomencladores: true,
-          tieneDocumentoIdentidad: true,
-          tieneDocumentoFactura: true,
-          tieneImpuestos: true,
-          tieneFormasPago: true,
-          fechaActualizacion: Timestamp.now()
-        });
-        
-        console.log(`✅ Estado del país ${paisId} actualizado correctamente`);
-      } else {
-        console.log(`⚠️ No se encontró el país ${paisId} para actualizar su estado`);
-      }
-    } catch (error) {
-      console.error(`❌ Error actualizando estado del país ${paisId}:`, error);
-      // No lanzar error para no interrumpir el flujo principal
     }
   }
 
@@ -307,11 +276,6 @@ export class SeedDataNomencladoresService {
         ...paisData,
         activo: true,
         fechaCreacion: Timestamp.now(),
-        tieneNomencladores: false,
-        tieneDocumentoIdentidad: false,
-        tieneDocumentoFactura: false,
-        tieneImpuestos: false,
-        tieneFormasPago: false,
         configuracionTributaria: {
           tiposDocumento: [],
           impuestos: [],
