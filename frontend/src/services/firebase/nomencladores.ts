@@ -68,7 +68,7 @@ export class NomencladoresService {
     }
   }
 
-  static async crearTipoDocumentoIdentidad(tipo: Omit<TipoDocumentoIdentidad, 'id'>): Promise<string> {
+  static async createNomenclador(tipo: string, data: any): Promise<string> {
     try {
       // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
@@ -76,23 +76,52 @@ export class NomencladoresService {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log('📝 Creando nuevo tipo de documento de identidad:', tipo.nombre);
+      console.log(`📝 Creando nuevo ${tipo}:`, data.nombre);
       
-      const tiposDocRef = collection(db, 'tiposDocumentoIdentidad');
-      const docRef = await addDoc(tiposDocRef, {
-        ...tipo,
+      let collectionName = '';
+      
+      // Determinar la colección según el tipo
+      switch (tipo) {
+        case 'tiposDocumentoIdentidad':
+          collectionName = 'tiposDocumentoIdentidad';
+          break;
+        case 'tiposDocumentoFactura':
+          collectionName = 'tiposDocumentoFactura';
+          break;
+        case 'tiposImpuesto':
+          collectionName = 'tiposImpuesto';
+          break;
+        case 'formasPago':
+          collectionName = 'formasPago';
+          break;
+        case 'tiposMovimientoTesoreria':
+          collectionName = 'tiposMovimientoTesoreria';
+          break;
+        case 'tiposMoneda':
+          collectionName = 'tiposMoneda';
+          break;
+        case 'bancos':
+          collectionName = 'bancos';
+          break;
+        default:
+          throw new Error(`Tipo de nomenclador no válido: ${tipo}`);
+      }
+      
+      const nomencladorRef = collection(db, collectionName);
+      const docRef = await addDoc(nomencladorRef, {
+        ...data,
         fechaCreacion: Timestamp.now()
       });
       
-      console.log(`✅ Tipo de documento de identidad creado con ID: ${docRef.id}`);
+      console.log(`✅ ${tipo} creado con ID: ${docRef.id}`);
       return docRef.id;
     } catch (error) {
-      console.error('❌ Error creando tipo de documento de identidad:', error);
+      console.error(`❌ Error creando ${tipo}:`, error);
       throw error;
     }
   }
 
-  static async actualizarTipoDocumentoIdentidad(id: string, datos: Partial<TipoDocumentoIdentidad>): Promise<void> {
+  static async updateNomenclador(tipo: string, id: string, datos: any): Promise<void> {
     try {
       // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
@@ -100,108 +129,51 @@ export class NomencladoresService {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🔄 Actualizando tipo de documento de identidad ${id}`);
+      console.log(`🔄 Actualizando ${tipo} ${id}`);
       
-      const tipoDocRef = doc(db, 'tiposDocumentoIdentidad', id);
-      await setDoc(tipoDocRef, {
+      let collectionName = '';
+      
+      // Determinar la colección según el tipo
+      switch (tipo) {
+        case 'tiposDocumentoIdentidad':
+          collectionName = 'tiposDocumentoIdentidad';
+          break;
+        case 'tiposDocumentoFactura':
+          collectionName = 'tiposDocumentoFactura';
+          break;
+        case 'tiposImpuesto':
+          collectionName = 'tiposImpuesto';
+          break;
+        case 'formasPago':
+          collectionName = 'formasPago';
+          break;
+        case 'tiposMovimientoTesoreria':
+          collectionName = 'tiposMovimientoTesoreria';
+          break;
+        case 'tiposMoneda':
+          collectionName = 'tiposMoneda';
+          break;
+        case 'bancos':
+          collectionName = 'bancos';
+          break;
+        default:
+          throw new Error(`Tipo de nomenclador no válido: ${tipo}`);
+      }
+      
+      const nomencladorRef = doc(db, collectionName, id);
+      await updateDoc(nomencladorRef, {
         ...datos,
         fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Tipo de documento de identidad actualizado correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando tipo de documento de identidad:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarTipoDocumentoIdentidad(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de documento de identidad ${id}`);
-      
-      const tipoDocRef = doc(db, 'tiposDocumentoIdentidad', id);
-      await deleteDoc(tipoDocRef);
-      
-      console.log('✅ Tipo de documento de identidad eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de documento de identidad:', error);
-      throw error;
-    }
-  }
-
-  // Tipos de Documento de Factura
-  static async getTiposDocumentoFactura(paisId: string): Promise<TipoDocumentoFactura[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockTiposDocumentoFactura(paisId);
-      }
-
-      console.log('🔍 Obteniendo tipos de documento de factura para país:', paisId);
-      
-      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(tiposDocRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron tipos de documento de factura, usando datos mock');
-        return this.getMockTiposDocumentoFactura(paisId);
-      }
-      
-      const tiposDoc = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as TipoDocumentoFactura[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposDocOrdenados = tiposDoc.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposDocOrdenados.length} tipos de documento de factura`);
-      return tiposDocOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de documento de factura:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockTiposDocumentoFactura(paisId);
-    }
-  }
-
-  static async crearTipoDocumentoFactura(tipo: Omit<TipoDocumentoFactura, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nuevo tipo de documento de factura:', tipo.nombre);
-      
-      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
-      const docRef = await addDoc(tiposDocRef, {
-        ...tipo,
-        fechaCreacion: Timestamp.now()
       });
       
-      console.log(`✅ Tipo de documento de factura creado con ID: ${docRef.id}`);
-      return docRef.id;
+      console.log(`✅ ${tipo} actualizado correctamente`);
     } catch (error) {
-      console.error('❌ Error creando tipo de documento de factura:', error);
+      console.error(`❌ Error actualizando ${tipo}:`, error);
       throw error;
     }
   }
 
-  static async actualizarTipoDocumentoFactura(id: string, datos: Partial<TipoDocumentoFactura>): Promise<void> {
+  static async deleteNomenclador(tipo: string, id: string): Promise<void> {
     try {
       // Asegurar autenticación
       const isAuth = await FirebaseAuthService.ensureAuthenticated();
@@ -209,582 +181,43 @@ export class NomencladoresService {
         throw new Error('No se pudo autenticar con Firebase');
       }
 
-      console.log(`🔄 Actualizando tipo de documento de factura ${id}`);
+      console.log(`🗑️ Eliminando ${tipo} ${id}`);
       
-      const tipoDocRef = doc(db, 'tiposDocumentoFactura', id);
-      await setDoc(tipoDocRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
+      let collectionName = '';
       
-      console.log('✅ Tipo de documento de factura actualizado correctamente');
+      // Determinar la colección según el tipo
+      switch (tipo) {
+        case 'tiposDocumentoIdentidad':
+          collectionName = 'tiposDocumentoIdentidad';
+          break;
+        case 'tiposDocumentoFactura':
+          collectionName = 'tiposDocumentoFactura';
+          break;
+        case 'tiposImpuesto':
+          collectionName = 'tiposImpuesto';
+          break;
+        case 'formasPago':
+          collectionName = 'formasPago';
+          break;
+        case 'tiposMovimientoTesoreria':
+          collectionName = 'tiposMovimientoTesoreria';
+          break;
+        case 'tiposMoneda':
+          collectionName = 'tiposMoneda';
+          break;
+        case 'bancos':
+          collectionName = 'bancos';
+          break;
+        default:
+          throw new Error(`Tipo de nomenclador no válido: ${tipo}`);
+      }
+      
+      const nomencladorRef = doc(db, collectionName, id);
+      await deleteDoc(nomencladorRef);
+      
+      console.log(`✅ ${tipo} eliminado correctamente`);
     } catch (error) {
-      console.error('❌ Error actualizando tipo de documento de factura:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarTipoDocumentoFactura(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de documento de factura ${id}`);
-      
-      const tipoDocRef = doc(db, 'tiposDocumentoFactura', id);
-      await deleteDoc(tipoDocRef);
-      
-      console.log('✅ Tipo de documento de factura eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de documento de factura:', error);
-      throw error;
-    }
-  }
-
-  // Tipos de Impuesto
-  static async getTiposImpuesto(paisId: string): Promise<TipoImpuesto[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockTiposImpuesto(paisId);
-      }
-
-      console.log('🔍 Obteniendo tipos de impuesto para país:', paisId);
-      
-      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(tiposImpuestoRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron tipos de impuesto, usando datos mock');
-        return this.getMockTiposImpuesto(paisId);
-      }
-      
-      const tiposImpuesto = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as TipoImpuesto[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposImpuestoOrdenados = tiposImpuesto.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposImpuestoOrdenados.length} tipos de impuesto`);
-      return tiposImpuestoOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de impuesto:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockTiposImpuesto(paisId);
-    }
-  }
-
-  static async crearTipoImpuesto(tipo: Omit<TipoImpuesto, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nuevo tipo de impuesto:', tipo.nombre);
-      
-      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
-      const docRef = await addDoc(tiposImpuestoRef, {
-        ...tipo,
-        fechaCreacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Tipo de impuesto creado con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando tipo de impuesto:', error);
-      throw error;
-    }
-  }
-
-  static async actualizarTipoImpuesto(id: string, datos: Partial<TipoImpuesto>): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando tipo de impuesto ${id}`);
-      
-      const tipoImpuestoRef = doc(db, 'tiposImpuesto', id);
-      await setDoc(tipoImpuestoRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Tipo de impuesto actualizado correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando tipo de impuesto:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarTipoImpuesto(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de impuesto ${id}`);
-      
-      const tipoImpuestoRef = doc(db, 'tiposImpuesto', id);
-      await deleteDoc(tipoImpuestoRef);
-      
-      console.log('✅ Tipo de impuesto eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de impuesto:', error);
-      throw error;
-    }
-  }
-
-  // Formas de Pago
-  static async getFormasPago(paisId: string): Promise<FormaPago[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockFormasPago(paisId);
-      }
-
-      console.log('🔍 Obteniendo formas de pago para país:', paisId);
-      
-      const formasPagoRef = collection(db, 'formasPago');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(formasPagoRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron formas de pago, usando datos mock');
-        return this.getMockFormasPago(paisId);
-      }
-      
-      const formasPago = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as FormaPago[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const formasPagoOrdenadas = formasPago.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${formasPagoOrdenadas.length} formas de pago`);
-      return formasPagoOrdenadas;
-    } catch (error) {
-      console.error('❌ Error obteniendo formas de pago:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockFormasPago(paisId);
-    }
-  }
-
-  static async crearFormaPago(forma: Omit<FormaPago, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nueva forma de pago:', forma.nombre);
-      
-      const formasPagoRef = collection(db, 'formasPago');
-      const docRef = await addDoc(formasPagoRef, {
-        ...forma,
-        fechaCreacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Forma de pago creada con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando forma de pago:', error);
-      throw error;
-    }
-  }
-
-  static async actualizarFormaPago(id: string, datos: Partial<FormaPago>): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando forma de pago ${id}`);
-      
-      const formaPagoRef = doc(db, 'formasPago', id);
-      await setDoc(formaPagoRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Forma de pago actualizada correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando forma de pago:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarFormaPago(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando forma de pago ${id}`);
-      
-      const formaPagoRef = doc(db, 'formasPago', id);
-      await deleteDoc(formaPagoRef);
-      
-      console.log('✅ Forma de pago eliminada correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando forma de pago:', error);
-      throw error;
-    }
-  }
-
-  // Tipos de Movimiento de Tesorería
-  static async getTiposMovimientoTesoreria(paisId: string): Promise<TipoMovimientoTesoreria[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockTiposMovimientoTesoreria(paisId);
-      }
-
-      console.log('🔍 Obteniendo tipos de movimiento de tesorería para país:', paisId);
-      
-      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(tiposMovimientoRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron tipos de movimiento de tesorería, usando datos mock');
-        return this.getMockTiposMovimientoTesoreria(paisId);
-      }
-      
-      const tiposMovimiento = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as TipoMovimientoTesoreria[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposMovimientoOrdenados = tiposMovimiento.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposMovimientoOrdenados.length} tipos de movimiento de tesorería`);
-      return tiposMovimientoOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de movimiento de tesorería:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockTiposMovimientoTesoreria(paisId);
-    }
-  }
-
-  static async crearTipoMovimientoTesoreria(tipo: Omit<TipoMovimientoTesoreria, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nuevo tipo de movimiento de tesorería:', tipo.nombre);
-      
-      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
-      const docRef = await addDoc(tiposMovimientoRef, {
-        ...tipo,
-        fechaCreacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Tipo de movimiento de tesorería creado con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  static async actualizarTipoMovimientoTesoreria(id: string, datos: Partial<TipoMovimientoTesoreria>): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando tipo de movimiento de tesorería ${id}`);
-      
-      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
-      await setDoc(tipoMovimientoRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Tipo de movimiento de tesorería actualizado correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarTipoMovimientoTesoreria(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de movimiento de tesorería ${id}`);
-      
-      const tipoMovimientoRef = doc(db, 'tiposMovimientoTesoreria', id);
-      await deleteDoc(tipoMovimientoRef);
-      
-      console.log('✅ Tipo de movimiento de tesorería eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de movimiento de tesorería:', error);
-      throw error;
-    }
-  }
-
-  // Tipos de Moneda
-  static async getTiposMoneda(paisId: string): Promise<TipoMoneda[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockTiposMoneda(paisId);
-      }
-
-      console.log('🔍 Obteniendo tipos de moneda para país:', paisId);
-      
-      const tiposMonedaRef = collection(db, 'tiposMoneda');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(tiposMonedaRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron tipos de moneda, usando datos mock');
-        return this.getMockTiposMoneda(paisId);
-      }
-      
-      const tiposMoneda = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as TipoMoneda[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const tiposMonedaOrdenados = tiposMoneda.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${tiposMonedaOrdenados.length} tipos de moneda`);
-      return tiposMonedaOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo tipos de moneda:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockTiposMoneda(paisId);
-    }
-  }
-
-  static async crearTipoMoneda(tipo: Omit<TipoMoneda, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nuevo tipo de moneda:', tipo.nombre);
-      
-      const tiposMonedaRef = collection(db, 'tiposMoneda');
-      const docRef = await addDoc(tiposMonedaRef, {
-        ...tipo,
-        fechaCreacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Tipo de moneda creado con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando tipo de moneda:', error);
-      throw error;
-    }
-  }
-
-  static async actualizarTipoMoneda(id: string, datos: Partial<TipoMoneda>): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando tipo de moneda ${id}`);
-      
-      const tipoMonedaRef = doc(db, 'tiposMoneda', id);
-      await setDoc(tipoMonedaRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Tipo de moneda actualizado correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando tipo de moneda:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarTipoMoneda(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando tipo de moneda ${id}`);
-      
-      const tipoMonedaRef = doc(db, 'tiposMoneda', id);
-      await deleteDoc(tipoMonedaRef);
-      
-      console.log('✅ Tipo de moneda eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando tipo de moneda:', error);
-      throw error;
-    }
-  }
-
-  // Bancos
-  static async getBancos(paisId: string): Promise<Banco[]> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        console.log('No se pudo autenticar con Firebase, usando datos mock');
-        return this.getMockBancos(paisId);
-      }
-
-      console.log('🔍 Obteniendo bancos para país:', paisId);
-      
-      const bancosRef = collection(db, 'bancos');
-      
-      // Usar query simple para evitar problemas de índices
-      const q = query(bancosRef, where('paisId', '==', paisId));
-      const snapshot = await getDocs(q);
-      
-      if (snapshot.empty) {
-        console.log('⚠️ No se encontraron bancos, usando datos mock');
-        return this.getMockBancos(paisId);
-      }
-      
-      const bancos = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Banco[];
-      
-      // Ordenar en el cliente para evitar problemas de índices
-      const bancosOrdenados = bancos.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      
-      console.log(`✅ Se encontraron ${bancosOrdenados.length} bancos`);
-      return bancosOrdenados;
-    } catch (error) {
-      console.error('❌ Error obteniendo bancos:', error);
-      
-      // Devolver datos mock para desarrollo
-      console.log('⚠️ Devolviendo datos mock para desarrollo');
-      return this.getMockBancos(paisId);
-    }
-  }
-
-  static async crearBanco(banco: Omit<Banco, 'id'>): Promise<string> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log('📝 Creando nuevo banco:', banco.nombre);
-      
-      const bancosRef = collection(db, 'bancos');
-      const docRef = await addDoc(bancosRef, {
-        ...banco,
-        fechaCreacion: Timestamp.now()
-      });
-      
-      console.log(`✅ Banco creado con ID: ${docRef.id}`);
-      return docRef.id;
-    } catch (error) {
-      console.error('❌ Error creando banco:', error);
-      throw error;
-    }
-  }
-
-  static async actualizarBanco(id: string, datos: Partial<Banco>): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🔄 Actualizando banco ${id}`);
-      
-      const bancoRef = doc(db, 'bancos', id);
-      await setDoc(bancoRef, {
-        ...datos,
-        fechaModificacion: Timestamp.now()
-      }, { merge: true });
-      
-      console.log('✅ Banco actualizado correctamente');
-    } catch (error) {
-      console.error('❌ Error actualizando banco:', error);
-      throw error;
-    }
-  }
-
-  static async eliminarBanco(id: string): Promise<void> {
-    try {
-      // Asegurar autenticación
-      const isAuth = await FirebaseAuthService.ensureAuthenticated();
-      if (!isAuth) {
-        throw new Error('No se pudo autenticar con Firebase');
-      }
-
-      console.log(`🗑️ Eliminando banco ${id}`);
-      
-      const bancoRef = doc(db, 'bancos', id);
-      await deleteDoc(bancoRef);
-      
-      console.log('✅ Banco eliminado correctamente');
-    } catch (error) {
-      console.error('❌ Error eliminando banco:', error);
+      console.error(`❌ Error eliminando ${tipo}:`, error);
       throw error;
     }
   }
@@ -906,6 +339,258 @@ export class NomencladoresService {
     } catch (error) {
       console.error('❌ Error inicializando nomencladores:', error);
       return false;
+    }
+  }
+
+  // Tipos de Documento de Factura
+  static async getTiposDocumentoFactura(paisId: string): Promise<TipoDocumentoFactura[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposDocumentoFactura(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de documento de factura para país:', paisId);
+      
+      const tiposDocRef = collection(db, 'tiposDocumentoFactura');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(tiposDocRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de documento de factura, usando datos mock');
+        return this.getMockTiposDocumentoFactura(paisId);
+      }
+      
+      const tiposDoc = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TipoDocumentoFactura[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const tiposDocOrdenados = tiposDoc.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${tiposDocOrdenados.length} tipos de documento de factura`);
+      return tiposDocOrdenados;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de documento de factura:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposDocumentoFactura(paisId);
+    }
+  }
+
+  // Tipos de Impuesto
+  static async getTiposImpuesto(paisId: string): Promise<TipoImpuesto[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposImpuesto(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de impuesto para país:', paisId);
+      
+      const tiposImpuestoRef = collection(db, 'tiposImpuesto');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(tiposImpuestoRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de impuesto, usando datos mock');
+        return this.getMockTiposImpuesto(paisId);
+      }
+      
+      const tiposImpuesto = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TipoImpuesto[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const tiposImpuestoOrdenados = tiposImpuesto.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${tiposImpuestoOrdenados.length} tipos de impuesto`);
+      return tiposImpuestoOrdenados;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de impuesto:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposImpuesto(paisId);
+    }
+  }
+
+  // Formas de Pago
+  static async getFormasPago(paisId: string): Promise<FormaPago[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockFormasPago(paisId);
+      }
+
+      console.log('🔍 Obteniendo formas de pago para país:', paisId);
+      
+      const formasPagoRef = collection(db, 'formasPago');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(formasPagoRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron formas de pago, usando datos mock');
+        return this.getMockFormasPago(paisId);
+      }
+      
+      const formasPago = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as FormaPago[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const formasPagoOrdenadas = formasPago.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${formasPagoOrdenadas.length} formas de pago`);
+      return formasPagoOrdenadas;
+    } catch (error) {
+      console.error('❌ Error obteniendo formas de pago:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockFormasPago(paisId);
+    }
+  }
+
+  // Tipos de Movimiento de Tesorería
+  static async getTiposMovimientoTesoreria(paisId: string): Promise<TipoMovimientoTesoreria[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposMovimientoTesoreria(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de movimiento de tesorería para país:', paisId);
+      
+      const tiposMovimientoRef = collection(db, 'tiposMovimientoTesoreria');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(tiposMovimientoRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de movimiento de tesorería, usando datos mock');
+        return this.getMockTiposMovimientoTesoreria(paisId);
+      }
+      
+      const tiposMovimiento = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TipoMovimientoTesoreria[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const tiposMovimientoOrdenados = tiposMovimiento.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${tiposMovimientoOrdenados.length} tipos de movimiento de tesorería`);
+      return tiposMovimientoOrdenados;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de movimiento de tesorería:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposMovimientoTesoreria(paisId);
+    }
+  }
+
+  // Tipos de Moneda
+  static async getTiposMoneda(paisId: string): Promise<TipoMoneda[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockTiposMoneda(paisId);
+      }
+
+      console.log('🔍 Obteniendo tipos de moneda para país:', paisId);
+      
+      const tiposMonedaRef = collection(db, 'tiposMoneda');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(tiposMonedaRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron tipos de moneda, usando datos mock');
+        return this.getMockTiposMoneda(paisId);
+      }
+      
+      const tiposMoneda = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as TipoMoneda[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const tiposMonedaOrdenados = tiposMoneda.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${tiposMonedaOrdenados.length} tipos de moneda`);
+      return tiposMonedaOrdenados;
+    } catch (error) {
+      console.error('❌ Error obteniendo tipos de moneda:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockTiposMoneda(paisId);
+    }
+  }
+
+  // Bancos
+  static async getBancos(paisId: string): Promise<Banco[]> {
+    try {
+      // Asegurar autenticación
+      const isAuth = await FirebaseAuthService.ensureAuthenticated();
+      if (!isAuth) {
+        console.log('No se pudo autenticar con Firebase, usando datos mock');
+        return this.getMockBancos(paisId);
+      }
+
+      console.log('🔍 Obteniendo bancos para país:', paisId);
+      
+      const bancosRef = collection(db, 'bancos');
+      
+      // Usar query simple para evitar problemas de índices
+      const q = query(bancosRef, where('paisId', '==', paisId));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('⚠️ No se encontraron bancos, usando datos mock');
+        return this.getMockBancos(paisId);
+      }
+      
+      const bancos = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Banco[];
+      
+      // Ordenar en el cliente para evitar problemas de índices
+      const bancosOrdenados = bancos.sort((a, b) => a.nombre.localeCompare(b.nombre));
+      
+      console.log(`✅ Se encontraron ${bancosOrdenados.length} bancos`);
+      return bancosOrdenados;
+    } catch (error) {
+      console.error('❌ Error obteniendo bancos:', error);
+      
+      // Devolver datos mock para desarrollo
+      console.log('⚠️ Devolviendo datos mock para desarrollo');
+      return this.getMockBancos(paisId);
     }
   }
 

@@ -33,7 +33,7 @@ import { NomencladorCard } from '../../components/admin/NomencladorCard';
 import { NomencladoresStats } from '../../components/admin/NomencladoresStats';
 import { PaisesNomencladores } from '../../components/admin/PaisesNomencladores';
 import { NomencladorModal } from '../../components/admin/NomencladorModal';
-import { SupabasePaisesService } from '../../services/supabase/paises';
+import { PaisesService } from '../../services/firebase/paises';
 
 function GestionNomencladores() {
   const { empresaActual, paisActual } = useSesion();
@@ -103,14 +103,13 @@ function GestionNomencladores() {
     const cargarPaises = async () => {
       setLoadingPaises(true);
       try {
-        const paisesData = await SupabasePaisesService.getPaisesActivos();
+        const paisesData = await PaisesService.getPaisesActivos();
         
         // Transformar a formato para el componente PaisesNomencladores
         const paisesFormateados = paisesData.map(pais => ({
           id: pais.id,
           nombre: pais.nombre,
           codigo: pais.codigo,
-          totalNomencladores: 0, // Se actualizará después
           tieneDocumentoIdentidad: false,
           tieneDocumentoFactura: false,
           tieneImpuestos: false,
@@ -214,12 +213,12 @@ function GestionNomencladores() {
   // Obtener todos los nomencladores en un solo array
   const getAllNomencladores = () => {
     return [
-      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tipos_documento_identidad' })),
-      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tipos_documento_factura' })),
-      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tipos_impuesto' })),
-      ...formasPago.map(item => ({ ...item, tipo: 'formas_pago' })),
-      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tipos_movimiento_tesoreria' })),
-      ...tiposMoneda.map(item => ({ ...item, tipo: 'tipos_moneda' })),
+      ...tiposDocumentoIdentidad.map(item => ({ ...item, tipo: 'tiposDocumentoIdentidad' })),
+      ...tiposDocumentoFactura.map(item => ({ ...item, tipo: 'tiposDocumentoFactura' })),
+      ...tiposImpuesto.map(item => ({ ...item, tipo: 'tiposImpuesto' })),
+      ...formasPago.map(item => ({ ...item, tipo: 'formasPago' })),
+      ...tiposMovimientoTesoreria.map(item => ({ ...item, tipo: 'tiposMovimientoTesoreria' })),
+      ...tiposMoneda.map(item => ({ ...item, tipo: 'tiposMoneda' })),
       ...bancos.map(item => ({ ...item, tipo: 'bancos' }))
     ];
   };
@@ -235,12 +234,12 @@ function GestionNomencladores() {
   // Obtener ícono según tipo de nomenclador
   const getNomencladorIcon = (tipo: string) => {
     switch (tipo) {
-      case 'tipos_documento_identidad': return <FileText className="h-4 w-4 text-blue-600" />;
-      case 'tipos_documento_factura': return <FileText className="h-4 w-4 text-purple-600" />;
-      case 'tipos_impuesto': return <Percent className="h-4 w-4 text-orange-600" />;
-      case 'formas_pago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
-      case 'tipos_movimiento_tesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
-      case 'tipos_moneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
+      case 'tiposDocumentoIdentidad': return <FileText className="h-4 w-4 text-blue-600" />;
+      case 'tiposDocumentoFactura': return <FileText className="h-4 w-4 text-purple-600" />;
+      case 'tiposImpuesto': return <Percent className="h-4 w-4 text-orange-600" />;
+      case 'formasPago': return <CreditCard className="h-4 w-4 text-indigo-600" />;
+      case 'tiposMovimientoTesoreria': return <Wallet className="h-4 w-4 text-teal-600" />;
+      case 'tiposMoneda': return <DollarSign className="h-4 w-4 text-yellow-600" />;
       case 'bancos': return <BankIcon className="h-4 w-4 text-cyan-600" />;
       default: return <Database className="h-4 w-4 text-gray-600" />;
     }
@@ -249,12 +248,12 @@ function GestionNomencladores() {
   // Obtener nombre legible del tipo de nomenclador
   const getNomencladorTypeName = (tipo: string) => {
     switch (tipo) {
-      case 'tipos_documento_identidad': return 'Tipo de Documento de Identidad';
-      case 'tipos_documento_factura': return 'Tipo de Documento de Factura';
-      case 'tipos_impuesto': return 'Tipo de Impuesto';
-      case 'formas_pago': return 'Forma de Pago';
-      case 'tipos_movimiento_tesoreria': return 'Tipo de Movimiento de Tesorería';
-      case 'tipos_moneda': return 'Tipo de Moneda';
+      case 'tiposDocumentoIdentidad': return 'Tipo de Documento de Identidad';
+      case 'tiposDocumentoFactura': return 'Tipo de Documento de Factura';
+      case 'tiposImpuesto': return 'Tipo de Impuesto';
+      case 'formasPago': return 'Forma de Pago';
+      case 'tiposMovimientoTesoreria': return 'Tipo de Movimiento de Tesorería';
+      case 'tiposMoneda': return 'Tipo de Moneda';
       case 'bancos': return 'Banco';
       default: return 'Nomenclador';
     }
@@ -284,7 +283,7 @@ function GestionNomencladores() {
     setSavingPais(true);
     try {
       // Crear país
-      await SupabasePaisesService.crearPais({
+      await PaisesService.crearPais({
         id: paisFormData.id,
         nombre: paisFormData.nombre,
         codigo: paisFormData.codigo,
@@ -322,12 +321,11 @@ function GestionNomencladores() {
       setShowPaisModal(false);
       
       // Recargar países
-      const paisesData = await SupabasePaisesService.getPaisesActivos();
+      const paisesData = await PaisesService.getPaisesActivos();
       const paisesFormateados = paisesData.map(pais => ({
         id: pais.id,
         nombre: pais.nombre,
         codigo: pais.codigo,
-        totalNomencladores: 0,
         tieneDocumentoIdentidad: false,
         tieneDocumentoFactura: false,
         tieneImpuestos: false,
@@ -413,12 +411,12 @@ function GestionNomencladores() {
   // Obtener color según tipo de nomenclador
   const getTipoColor = (tipo: string) => {
     switch (tipo) {
-      case 'tipos_documento_identidad': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'tipos_documento_factura': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'tipos_impuesto': return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'formas_pago': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'tipos_movimiento_tesoreria': return 'bg-teal-100 text-teal-800 border-teal-200';
-      case 'tipos_moneda': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'tiposDocumentoIdentidad': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'tiposDocumentoFactura': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'tiposImpuesto': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'formasPago': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'tiposMovimientoTesoreria': return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'tiposMoneda': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'bancos': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -596,12 +594,12 @@ function GestionNomencladores() {
                       className="px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
                     >
                       <option value="">Todos los tipos</option>
-                      <option value="tipos_documento_identidad">Documentos de Identidad</option>
-                      <option value="tipos_documento_factura">Documentos de Factura</option>
-                      <option value="tipos_impuesto">Impuestos</option>
-                      <option value="formas_pago">Formas de Pago</option>
-                      <option value="tipos_movimiento_tesoreria">Movimientos de Tesorería</option>
-                      <option value="tipos_moneda">Monedas</option>
+                      <option value="tiposDocumentoIdentidad">Documentos de Identidad</option>
+                      <option value="tiposDocumentoFactura">Documentos de Factura</option>
+                      <option value="tiposImpuesto">Impuestos</option>
+                      <option value="formasPago">Formas de Pago</option>
+                      <option value="tiposMovimientoTesoreria">Movimientos de Tesorería</option>
+                      <option value="tiposMoneda">Monedas</option>
                       <option value="bancos">Bancos</option>
                     </select>
                   </div>
