@@ -15,7 +15,10 @@ import {
   Search,
   Filter,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  FileText,
+  X,
+  Loader2
 } from 'lucide-react';
 import { useSesion } from '../../context/SesionContext';
 import { useAuth } from '../../context/AuthContext';
