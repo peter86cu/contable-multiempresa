@@ -68,6 +68,11 @@ const ConfiguracionMapeoArchivos = React.lazy(() =>
     .then(mod => ({ default: mod.ConfiguracionMapeoArchivos }))
 )
 
+const ApiDocumentation = React.lazy(() =>
+  import('./pages/admin/ApiDocumentation')
+    .then(mod => ({ default: mod.default }))
+)
+
 const ManualRouter = React.lazy(() =>
   import('./manuales/ManualRouter')
     .then(mod => ({ default: mod.ManualRouter }))
@@ -230,6 +235,11 @@ const AppRoutes: React.FC = () => {
             <Route path="/admin/configuracion-mapeo" element={
               <ProtectedRoute requiredPermission="empresas:read">
                 <ConfiguracionMapeoArchivos />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/api-docs" element={
+              <ProtectedRoute requiredPermission="empresas:read">
+                <ApiDocumentation />
               </ProtectedRoute>
             } />
             

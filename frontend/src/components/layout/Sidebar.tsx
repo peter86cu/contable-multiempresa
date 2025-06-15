@@ -15,7 +15,8 @@ import {
   FileBarChart,
   ArrowLeftRight,
   X,
-  Database
+  Database,
+  Server
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -164,6 +165,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           title: 'Mapeo de Archivos', 
           icon: FileText, 
           path: '/admin/configuracion-mapeo',
+          permiso: 'empresas:read'
+        },
+        { 
+          title: 'API Documentation', 
+          icon: Server, 
+          path: '/admin/api-docs',
           permiso: 'empresas:read'
         }
       ]
